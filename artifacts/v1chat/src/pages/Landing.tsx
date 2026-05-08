@@ -174,7 +174,7 @@ function SafetyIcon({ name }: { name: string }) {
 function Logo({ size = 40 }: { size?: number }) {
   return (
     <img
-      src="/app-logo.jpeg"
+      src="/app-logo.png"
       alt="1v1 Chat"
       width={size}
       height={size}
