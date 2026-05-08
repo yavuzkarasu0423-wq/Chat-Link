@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { setLanguage } from "../i18n";
 
 import type { Filters } from "./Chat";
 
@@ -1458,7 +1459,7 @@ function SettingsSheet({ onClose, onLogout, onShowBlocked, onShowTerms, onShowPr
   onShowPrivacy: () => void;
 }) {
   const items: { label: string; action: () => void }[] = [
-    { label: "About Us", action: () => {} },
+    { label: "Hakkımızda", action: () => {} },
     { label: "Bize Ulaşın", action: () => {} },
     { label: "Topluluk Kuralları", action: () => {} },
     { label: "Kullanım Koşulları", action: onShowTerms },
@@ -1850,6 +1851,17 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
   const [showProfile, setShowProfile]   = useState(forceProfileOpen);
   const [showSettings, setShowSettings] = useState(false);
   const [showBlocked, setShowBlocked]   = useState(false);
+  const [langOpen, setLangOpen]         = useState(false);
+  const [currentLang, setCurrentLang]   = useState<"tr" | "en" | "ar">(() => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("lang") : null;
+    return (stored as "tr" | "en" | "ar") || "tr";
+  });
+  const handleLangChange = (lang: "tr" | "en" | "ar") => {
+    setCurrentLang(lang);
+    setLanguage(lang);
+    setLangOpen(false);
+  };
+  const langLabels: Record<"tr" | "en" | "ar", string> = { tr: "Türkçe", en: "English", ar: "العربية" };
 
   useEffect(() => { if (forceProfileOpen) setShowProfile(true); }, [forceProfileOpen]);
 
@@ -2090,7 +2102,27 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
               ))}
             </nav>
             <div className="ml-auto flex items-center gap-3">
-              <button className="border border-gray-200 rounded-full px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">İngilizce ▾</button>
+              <div className="relative">
+                <button
+                  onClick={() => setLangOpen((v) => !v)}
+                  className="border border-gray-200 rounded-full px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 flex items-center gap-1"
+                >
+                  {langLabels[currentLang]} ▾
+                </button>
+                {langOpen && (
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden min-w-[110px]">
+                    {(["tr", "en", "ar"] as const).map((l) => (
+                      <button
+                        key={l}
+                        onClick={() => handleLangChange(l)}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${currentLang === l ? "font-semibold text-gray-900" : "text-gray-600"}`}
+                      >
+                        {langLabels[l]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button onClick={() => setModal("login")} className="flex items-center gap-2 bg-gray-900 text-white rounded-full px-4 py-1.5 text-sm font-semibold hover:bg-gray-700 transition-colors">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
