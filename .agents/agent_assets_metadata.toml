@@ -1,0 +1,14 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "UI5t8ZVnQcnzX1lox_tLD"
+uri = "file://artifacts/v1chat/public/coin-icon.png"
+type = "image"
+title = "gold coin icon"
+
+[[generated]]
+id = "Mba6jn73RD379f8piV0mN"
+uri = "file://artifacts/v1chat/public/app-logo.png"
+type = "image"
+title = "1v1 chat app logo"
