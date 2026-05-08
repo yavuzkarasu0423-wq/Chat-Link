@@ -1,0 +1,45 @@
+🚀 Admin Panel — Dev Güncelleme Planı
+🔴 Yüksek Öncelik (Hemen Fark Yaratır)
+1. 📢 Duyuru Yayını (Broadcast)
+Tüm online kullanıcılara Socket.IO üzerinden anlık bildirim gönder. Bakım mesajı, etkinlik duyurusu, sistem uyarısı gibi şeyler için. Bir metin kutusu + "Yayınla" butonu — arka planda io.emit("announcement", { text }) çalışır, frontend'de toast gösterir.
+
+2. 🗃️ Çözülmüş Şikayetler Geçmişi
+Şu an sadece "açık" şikayetler görünüyor. "Geçmiş" sekmesi veya filtre eklenirse çözülmüş olanlar da görülebilir, kimin hangi şikayeti ne zaman kapattığı izlenebilir.
+
+3. 💰 Coin Düşürme / Sıfırlama
+Şu an sadece coin ekleniyor. Negatif değer göndererek coin düşürme + sıfırlama butonu eklenebilir. Haksız kazanılan coinleri geri almak için kullanışlı.
+
+4. 🧾 Eşleşme Geçmişi Sekmesi
+Kim kiminle eşleşti, kaç saniye sürdü, hediye gönderildi mi — tablo + tarih/kullanıcı filtresi. Zaten match_history tablosu mevcut, sadece admin API endpoint + UI eksik.
+
+🟡 Orta Öncelik (Operasyonel Güç)
+5. 👤 Gelişmiş Kullanıcı Detay Paneli
+Şu anki modal sadece özet bilgi gösteriyor. Genişletilmiş versiyonda:
+
+Son 10 eşleşmesi
+Son coin işlemleri
+Aktif ban var mı
+Aldığı / verdiği şikayetler
+"Coin Gönder", "Ban At", "Admin Yap" aksiyonları tek yerden
+6. 📊 Demografi & Filtre İstatistikleri
+Hangi ülkeden kaç kullanıcı, yaş dağılımı, cinsiyet oranı — pasta grafik + bar chart. profiles tablosundan basit GROUP BY sorguları.
+
+7. ✉️ Kullanıcıya E-posta Gönder
+Resend entegrasyonu zaten kurulu. Belirli bir kullanıcıya (veya tüm kullanıcılara) konu + içerik yazıp e-posta atma. Toplu veya tekil gönderim.
+
+8. 🔍 Gelişmiş Kullanıcı Arama & Filtrele
+Şu an isim/ID/email aranabiliyor. Ülkeye göre, yaşa göre, kayıt tarihine göre, coin bakiyesine göre filtreleme eklenebilir.
+
+🟢 Düşük Öncelik (Analytics & Export)
+9. 📥 CSV Export
+Dashboard, kullanıcı listesi, coin işlemleri — "İndir" butonuyla tarayıcıda CSV dosyası oluştur. Harici araç gerektirmez.
+
+10. 💳 Stripe Gelir Raporu
+Stripe API'den ödeme geçmişi çekip aylık gelir, hangi paketin en çok satıldığı, top spender listesi.
+
+11. 🌐 IP / Cihaz Bazlı Ban
+Şu an sadece kullanıcı ID'sine ban atılıyor. IP adresine veya cihaz fingerprint'e ban eklenebilir (proxy/VPN engellemek için).
+
+12. 📈 Saatlik / Aylık Grafik Seçimi
+Dashboard'daki grafiklerde şu an sabit 14 gün var. 7 / 30 / 90 gün seçeneği + saatlik breakdown eklenebilir.
+
