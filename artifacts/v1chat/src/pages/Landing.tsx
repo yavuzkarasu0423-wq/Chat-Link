@@ -576,11 +576,11 @@ function ProfilePage({ onClose, onSaved, onOpenSettings, coins, onOpenCoins }: {
           {coins !== undefined && onOpenCoins && (
             <button
               onClick={onOpenCoins}
-              className="relative flex items-center flex-shrink-0 rounded-full pl-3 pr-0.5"
-              style={{ background: "linear-gradient(135deg, #4ade80 0%, #a3e635 100%)", height: 30, boxShadow: "0 2px 6px rgba(74,222,128,0.4)" }}
+              className="flex items-center gap-1.5 flex-shrink-0 rounded-full px-3"
+              style={{ background: "linear-gradient(135deg, #4ade80 0%, #a3e635 100%)", height: 30, boxShadow: "0 2px 6px rgba(74,222,128,0.35)" }}
             >
-              <span className="font-extrabold text-black text-sm tracking-tight leading-none mr-1">{coins}</span>
-              <img src="/coin-icon.png" alt="coin" style={{ width: 30, height: 30, objectFit: "contain", flexShrink: 0 }} />
+              <img src="/coin-icon.png" alt="coin" style={{ width: 18, height: 18, objectFit: "contain", flexShrink: 0 }} />
+              <span className="font-extrabold text-black text-sm tracking-tight leading-none">{coins}</span>
             </button>
           )}
           {onOpenSettings && (
@@ -1642,11 +1642,11 @@ function MessagesTabPage({ meId, authedUser, coins, onMarkRead, onOpenProfile, o
   const CoinBtn = () => (
     <button
       onClick={onOpenCoins}
-      className="relative flex items-center flex-shrink-0 rounded-full pl-3 pr-0.5"
-      style={{ background: "linear-gradient(135deg, #4ade80 0%, #a3e635 100%)", height: 30, boxShadow: "0 2px 6px rgba(74,222,128,0.4)" }}
+      className="flex items-center gap-1.5 flex-shrink-0 rounded-full px-3"
+      style={{ background: "linear-gradient(135deg, #4ade80 0%, #a3e635 100%)", height: 30, boxShadow: "0 2px 6px rgba(74,222,128,0.35)" }}
     >
-      <span className="font-extrabold text-black text-sm tracking-tight leading-none mr-1">{coins}</span>
-      <img src="/coin-icon.png" alt="coin" style={{ width: 30, height: 30, objectFit: "contain", flexShrink: 0 }} />
+      <img src="/coin-icon.png" alt="coin" style={{ width: 18, height: 18, objectFit: "contain", flexShrink: 0 }} />
+      <span className="font-extrabold text-black text-sm tracking-tight leading-none">{coins}</span>
     </button>
   );
 
@@ -1923,11 +1923,11 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
   const CoinBadge = () => (
     <button
       onClick={() => setModal("coins")}
-      className="relative flex items-center flex-shrink-0 rounded-full pl-3 pr-0.5"
-      style={{ background: "linear-gradient(135deg, #4ade80 0%, #a3e635 100%)", height: 32, boxShadow: "0 2px 8px rgba(74,222,128,0.4)" }}
+      className="flex items-center gap-1.5 flex-shrink-0 rounded-full px-3"
+      style={{ background: "linear-gradient(135deg, #4ade80 0%, #a3e635 100%)", height: 30, boxShadow: "0 2px 8px rgba(74,222,128,0.35)" }}
     >
-      <span className="font-extrabold text-black text-sm tracking-tight leading-none mr-1">{coins}</span>
-      <img src="/coin-icon.png" alt="coin" style={{ width: 32, height: 32, objectFit: "contain", flexShrink: 0 }} />
+      <img src="/coin-icon.png" alt="coin" style={{ width: 18, height: 18, objectFit: "contain", flexShrink: 0 }} />
+      <span className="font-extrabold text-black text-sm tracking-tight leading-none">{coins}</span>
     </button>
   );
 
@@ -1987,7 +1987,6 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
                     {avatarEl}
                   </button>
                   <CoinBadge />
-                  <span className="text-2xl select-none">🐸</span>
                 </div>
                 <div className="absolute inset-0">
                   <PhotoCollage />
@@ -2019,7 +2018,6 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
                     {avatarEl}
                   </button>
                   <CoinBadge />
-                  <span className="text-2xl select-none">🐸</span>
                 </div>
                 <KesfetPage />
               </div>
