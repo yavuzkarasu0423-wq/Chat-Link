@@ -1954,10 +1954,10 @@ export default function AdminPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: "Çevrimiçi Kullanıcı", value: String(healthData.liveUsers), icon: "🟢", color: healthData.liveUsers > 0 ? "emerald" : "indigo" },
-                    { label: "Sunucu Çalışma Süresi", value: `${Math.floor(healthData.uptimeSeconds / 3600)}s ${Math.floor((healthData.uptimeSeconds % 3600) / 60)}d`, icon: "⏱️", color: "indigo" },
-                    { label: "Veritabanı", value: healthData.db.ok ? `${healthData.db.latencyMs}ms` : "Bağlantı Hatası", icon: "🗄️", color: healthData.db.ok ? "emerald" : "red" },
-                    { label: "Node.js", value: healthData.nodeVersion, icon: "⚙️", color: "indigo" },
+                    { label: "Çevrimiçi Kullanıcı", value: String(healthData.liveUsers ?? 0), icon: "🟢", color: (healthData.liveUsers ?? 0) > 0 ? "emerald" : "indigo" },
+                    { label: "Sunucu Çalışma Süresi", value: `${Math.floor((healthData.uptimeSeconds ?? 0) / 3600)}s ${Math.floor(((healthData.uptimeSeconds ?? 0) % 3600) / 60)}d`, icon: "⏱️", color: "indigo" },
+                    { label: "Veritabanı", value: healthData.db?.ok ? `${healthData.db.latencyMs}ms` : "Bağlantı Hatası", icon: "🗄️", color: healthData.db?.ok ? "emerald" : "red" },
+                    { label: "Node.js", value: healthData.nodeVersion ?? "—", icon: "⚙️", color: "indigo" },
                   ].map((item) => (
                     <StatCard key={item.label} label={item.label} value={item.value} icon={item.icon} color={item.color} />
                   ))}
@@ -1967,8 +1967,8 @@ export default function AdminPage() {
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">🧠 Bellek Kullanımı</p>
                   <div className="space-y-3">
                     {[
-                      { label: "Heap Kullanılan", used: healthData.memory.heapUsedMb, total: healthData.memory.heapTotalMb, color: "#6366f1" },
-                      { label: "RSS (Toplam)", used: healthData.memory.rssMb, total: Math.max(healthData.memory.rssMb, 512), color: "#a855f7" },
+                      { label: "Heap Kullanılan", used: healthData.memory?.heapUsedMb ?? 0, total: healthData.memory?.heapTotalMb ?? 1, color: "#6366f1" },
+                      { label: "RSS (Toplam)", used: healthData.memory?.rssMb ?? 0, total: Math.max(healthData.memory?.rssMb ?? 0, 512), color: "#a855f7" },
                     ].map((m) => (
                       <div key={m.label}>
                         <div className="flex items-center justify-between mb-1">
@@ -1988,7 +1988,7 @@ export default function AdminPage() {
                   <div className="space-y-2">
                     {[
                       { name: "API Server", ok: true },
-                      { name: "PostgreSQL", ok: healthData.db.ok },
+                      { name: "PostgreSQL", ok: healthData.db?.ok ?? false },
                       { name: "Socket.IO", ok: true },
                     ].map((s) => (
                       <div key={s.name} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
