@@ -35,7 +35,7 @@ function playDmSound() {
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
-type Modal = "none" | "login" | "safety" | "coins" | "coin-history" | "filters" | "terms" | "privacy";
+type Modal = "none" | "login" | "safety" | "coins" | "coin-history" | "filters" | "terms" | "privacy" | "about" | "contact" | "community";
 type Tab = "home" | "kesfet" | "match" | "messages";
 
 export interface LandingProps {
@@ -1363,6 +1363,155 @@ function PrivacyModal({ onClose }: { onClose: () => void }) {
 }
 
 // ─────────────────────────────────────────────
+// Hakkımızda Modal
+// ─────────────────────────────────────────────
+function AboutModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] px-4 animate-fade-in">
+      <div className="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[85dvh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-bold text-gray-900">Hakkımızda</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 font-bold">✕</button>
+        </div>
+        <div className="flex flex-col items-center mb-6">
+          <img src="/app-logo.png" alt="1v1 Chat" className="w-20 h-20 rounded-2xl shadow-md mb-3" />
+          <h3 className="text-2xl font-black text-gray-900">1v1 Chat</h3>
+          <p className="text-sm text-gray-400 mt-1">Sürüm 1.0.0</p>
+        </div>
+        <div className="space-y-4 text-sm text-gray-600 leading-relaxed">
+          <p>
+            <strong className="text-gray-900">1v1 Chat</strong>, yabancılarla gerçek zamanlı bire bir görüntülü sohbet yapmanı sağlayan bir platformdur.
+          </p>
+          <div className="bg-emerald-50 rounded-2xl p-4 space-y-2">
+            {[
+              { icon: "🎥", text: "Anında görüntülü bağlantı" },
+              { icon: "🌍", text: "Dünyadan kullanıcılarla eşleş" },
+              { icon: "🎁", text: "Hediye gönder, coin kazan" },
+              { icon: "👥", text: "Arkadaş edin, DM at" },
+              { icon: "🛡️", text: "Güvenli & anonim ortam" },
+            ].map((f) => (
+              <div key={f.text} className="flex items-center gap-3">
+                <span className="text-xl">{f.icon}</span>
+                <span className="text-gray-700 font-medium">{f.text}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-gray-400 text-xs pt-2">© 2025 1v1 Chat. Tüm hakları saklıdır.</p>
+        </div>
+        <button onClick={onClose} className="mt-6 w-full py-3 rounded-full bg-gray-900 text-white font-semibold text-sm hover:bg-gray-700">Kapat</button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Bize Ulaşın Modal
+// ─────────────────────────────────────────────
+function ContactModal({ onClose }: { onClose: () => void }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [msg, setMsg] = useState("");
+  const [sent, setSent] = useState(false);
+  const handleSend = () => {
+    if (!name.trim() || !email.trim() || !msg.trim()) return;
+    setSent(true);
+  };
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] px-4 animate-fade-in">
+      <div className="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[85dvh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-bold text-gray-900">Bize Ulaşın</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 font-bold">✕</button>
+        </div>
+        {sent ? (
+          <div className="py-10 flex flex-col items-center gap-4 text-center">
+            <div className="text-5xl">✅</div>
+            <h3 className="text-lg font-bold text-gray-900">Mesajınız alındı!</h3>
+            <p className="text-sm text-gray-500">En kısa sürede <strong>{email}</strong> adresine dönüş yapacağız.</p>
+            <button onClick={onClose} className="mt-2 px-6 py-2.5 rounded-full bg-gray-900 text-white font-semibold text-sm">Kapat</button>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-3 mb-5">
+              <div className="bg-blue-50 rounded-2xl p-4 text-sm text-blue-700">
+                <p className="font-semibold mb-1">📧 Doğrudan E-posta</p>
+                <p className="text-blue-600 font-mono">support@1v1chat.me</p>
+              </div>
+              <p className="text-sm text-gray-500 text-center">veya aşağıdaki formu doldurun</p>
+            </div>
+            <div className="space-y-3">
+              <input
+                value={name} onChange={(e) => setName(e.target.value)}
+                placeholder="Adınız"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-gray-400"
+              />
+              <input
+                value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="E-posta adresiniz"
+                type="email"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-gray-400"
+              />
+              <textarea
+                value={msg} onChange={(e) => setMsg(e.target.value)}
+                placeholder="Mesajınız..."
+                rows={4}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-gray-400 resize-none"
+              />
+            </div>
+            <button
+              onClick={handleSend}
+              disabled={!name.trim() || !email.trim() || !msg.trim()}
+              className="mt-4 w-full py-3 rounded-full bg-emerald-500 text-white font-semibold text-sm hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Gönder
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Topluluk Kuralları Modal
+// ─────────────────────────────────────────────
+function CommunityModal({ onClose }: { onClose: () => void }) {
+  const rules = [
+    { emoji: "🔞", title: "18 Yaş Sınırı", desc: "Platform yalnızca 18 yaş ve üzeri kullanıcılar içindir. Minörler kesinlikle kabul edilmez." },
+    { emoji: "🚫", title: "Müstehcen İçerik Yasak", desc: "Cinsel içerik, çıplaklık veya uygunsuz davranış anında ban ile sonuçlanır." },
+    { emoji: "💬", title: "Saygılı İletişim", desc: "Hakaret, nefret söylemi, ırkçılık, tehdit veya taciz kesinlikle yasaktır." },
+    { emoji: "📵", title: "Ekran Kaydı Yasak", desc: "Karşı tarafı kaydetmek veya yayınlamak ciddi yasal sonuçlar doğurabilir." },
+    { emoji: "🎭", title: "Kimlik Sahtekarlığı Yasak", desc: "Başkasının kimliğine bürünmek, sahte profil oluşturmak yasaktır." },
+    { emoji: "📢", title: "Spam Yasak", desc: "Reklam, link paylaşımı, tekrarlı mesaj göndermek yasaktır." },
+    { emoji: "⚖️", title: "Yasal Sorumluluk", desc: "Yasa dışı içerik paylaşmak yetkililere bildirilebilir. Platformda gerçek kimliğinizle davranın." },
+    { emoji: "🛡️", title: "Şikayet Et", desc: "Kuralları çiğneyen kullanıcıları sohbet sırasında 'Şikayet' butonuyla bildirin. Moderatörlerimiz 24 saat aktiftir." },
+  ];
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] px-4 animate-fade-in">
+      <div className="bg-white rounded-3xl w-full max-w-lg p-6 shadow-2xl max-h-[85dvh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-bold text-gray-900">Topluluk Kuralları</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 font-bold">✕</button>
+        </div>
+        <p className="text-sm text-gray-500 mb-5">Güvenli ve saygılı bir ortam için lütfen aşağıdaki kurallara uy. Kural ihlalleri hesap askıya alma ile sonuçlanır.</p>
+        <div className="space-y-3">
+          {rules.map((r) => (
+            <div key={r.title} className="flex gap-3 p-3 rounded-2xl bg-gray-50">
+              <span className="text-2xl flex-shrink-0">{r.emoji}</span>
+              <div>
+                <p className="font-semibold text-gray-900 text-sm">{r.title}</p>
+                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{r.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button onClick={onClose} className="mt-6 w-full py-3 rounded-full bg-gray-900 text-white font-semibold text-sm hover:bg-gray-700">Anladım, Kabul Ediyorum</button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
 // Bottom Navigation Bar
 // ─────────────────────────────────────────────
 function BottomNav({ tab, setTab, unreadDms, onVideoChat }: {
@@ -1451,21 +1600,25 @@ function MatchPage({ onStart }: { onStart: () => void }) {
 // ─────────────────────────────────────────────
 // Settings Sheet — sağdan kayan panel
 // ─────────────────────────────────────────────
-function SettingsSheet({ onClose, onLogout, onShowBlocked, onShowTerms, onShowPrivacy }: {
+function SettingsSheet({ onClose, onLogout, onShowBlocked, onShowTerms, onShowPrivacy, onShowAbout, onShowContact, onShowCommunity, onStartVideoChat }: {
   onClose: () => void;
   onLogout?: () => void;
   onShowBlocked: () => void;
   onShowTerms: () => void;
   onShowPrivacy: () => void;
+  onShowAbout: () => void;
+  onShowContact: () => void;
+  onShowCommunity: () => void;
+  onStartVideoChat: () => void;
 }) {
-  const items: { label: string; action: () => void }[] = [
-    { label: "Hakkımızda", action: () => {} },
-    { label: "Bize Ulaşın", action: () => {} },
-    { label: "Topluluk Kuralları", action: () => {} },
-    { label: "Kullanım Koşulları", action: onShowTerms },
-    { label: "Gizlilik Politikası", action: onShowPrivacy },
-    { label: "Rastgele Video Sohbet", action: () => {} },
-    { label: "Engellenen Kullanıcılar", action: onShowBlocked },
+  const items: { label: string; icon: string; action: () => void }[] = [
+    { label: "Hakkımızda", icon: "ℹ️", action: onShowAbout },
+    { label: "Bize Ulaşın", icon: "📧", action: onShowContact },
+    { label: "Topluluk Kuralları", icon: "📋", action: onShowCommunity },
+    { label: "Kullanım Koşulları", icon: "📄", action: onShowTerms },
+    { label: "Gizlilik Politikası", icon: "🔒", action: onShowPrivacy },
+    { label: "Rastgele Video Sohbet", icon: "🎥", action: onStartVideoChat },
+    { label: "Engellenen Kullanıcılar", icon: "🚫", action: onShowBlocked },
   ];
   return (
     <div className="fixed inset-0 z-[60] flex justify-end" onClick={onClose}>
@@ -1482,9 +1635,10 @@ function SettingsSheet({ onClose, onLogout, onShowBlocked, onShowTerms, onShowPr
             <button
               key={item.label}
               onClick={() => { item.action(); onClose(); }}
-              className="w-full px-5 py-4 text-left text-base text-gray-800 hover:bg-gray-50 border-b border-gray-50 transition-colors"
+              className="w-full px-5 py-4 text-left text-base text-gray-800 hover:bg-gray-50 border-b border-gray-50 transition-colors flex items-center gap-3"
             >
-              {item.label}
+              <span className="text-xl w-7 flex-shrink-0">{item.icon}</span>
+              <span>{item.label}</span>
             </button>
           ))}
           {onLogout && (
@@ -2083,6 +2237,10 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
               onShowBlocked={() => { setShowSettings(false); setShowBlocked(true); }}
               onShowTerms={() => { setShowSettings(false); setModal("terms"); }}
               onShowPrivacy={() => { setShowSettings(false); setModal("privacy"); }}
+              onShowAbout={() => { setShowSettings(false); setModal("about"); }}
+              onShowContact={() => { setShowSettings(false); setModal("contact"); }}
+              onShowCommunity={() => { setShowSettings(false); setModal("community"); }}
+              onStartVideoChat={() => { setShowSettings(false); onStartChat(); }}
             />
           )}
         </>
@@ -2164,6 +2322,9 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
       {modal === "coin-history" && <CoinHistoryModal onClose={() => setModal("none")} />}
       {modal === "terms"        && <TermsModal      onClose={() => setModal("none")} />}
       {modal === "privacy"      && <PrivacyModal    onClose={() => setModal("none")} />}
+      {modal === "about"        && <AboutModal      onClose={() => setModal("none")} />}
+      {modal === "contact"      && <ContactModal    onClose={() => setModal("none")} />}
+      {modal === "community"    && <CommunityModal  onClose={() => setModal("none")} />}
       {modal === "filters" && filters && onFiltersChange && (
         <FiltersModal filters={filters} onChange={onFiltersChange} onClose={() => setModal("none")} />
       )}
