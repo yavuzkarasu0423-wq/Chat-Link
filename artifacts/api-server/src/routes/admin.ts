@@ -949,13 +949,6 @@ router.post("/broadcasters", async (req, res) => {
     },
   });
 
-  // Eğer broadcaster rolü yoksa ekle
-  const [existing] = await db.select().from(userRolesTable)
-    .where(and(eq(userRolesTable.userId, userId.trim()), eq(userRolesTable.role, "broadcaster")));
-  if (!existing) {
-    await db.insert(userRolesTable).values({ userId: userId.trim(), role: "broadcaster" });
-  }
-
   await auditLog(req, "broadcaster_add", userId.trim(), { fullName, iban: ibanClean });
   res.json({ ok: true });
 });
