@@ -60,6 +60,9 @@ app.use(cors({
   credentials: true,
 }));
 app.use(cookieParser());
+// Stripe webhooks need the raw body for signature verification — mount express.raw BEFORE express.json
+app.use("/api/subscription/webhook", express.raw({ type: "application/json" }));
+app.use("/api/checkout/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

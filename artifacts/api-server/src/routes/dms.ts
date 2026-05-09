@@ -6,6 +6,7 @@ import { eq, and, or, desc, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { sendDmNotificationEmail } from "../lib/email";
 import { notifyUser } from "../lib/socketio";
+import { sendPushToUser } from "../lib/push";
 
 const router = Router();
 
@@ -130,6 +131,12 @@ async function sendDm(fromUserId: string, toUserId: string, text: string) {
       fromUserId,
       fromDisplayName: fromName,
       preview: text.slice(0, 80),
+    });
+    void sendPushToUser(toUserId, {
+      title: fromName,
+      body: text.slice(0, 120),
+      data: { kind: "dm", fromUserId },
+      channelId: "messages",
     });
     const [toUser] = await db.select().from(usersTable).where(eq(usersTable.id, toUserId)).limit(1);
     if (toUser?.email && fromProfile) {

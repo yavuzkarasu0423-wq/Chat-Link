@@ -10,3 +10,7 @@ export * from "./email_verifications";
 export * from "./matches";
 export * from "./audit_logs";
 export * from "./broadcasters";
+export * from "./push_tokens";
+export * from "./daily_rewards";
+export * from "./subscriptions";
+export * from "./processed_events";

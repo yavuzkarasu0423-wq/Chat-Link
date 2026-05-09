@@ -5,6 +5,7 @@ import { coinBalancesTable, coinTransactionsTable, profilesTable } from "@worksp
 import { eq, sql, desc, and } from "drizzle-orm";
 import { z } from "zod";
 import { notifyUser } from "../lib/socketio";
+import { sendPushToUser } from "../lib/push";
 
 const router = Router();
 
@@ -134,6 +135,12 @@ router.post("/spend", requireAuth, async (req, res) => {
       emoji: giftEmoji,
       coins: amount,
       senderName: senderProfile?.displayName ?? "Birisi",
+    });
+    void sendPushToUser(receiverId, {
+      title: `${giftEmoji} Hediye aldın!`,
+      body: `${senderProfile?.displayName ?? "Birisi"} sana ${giftEmoji} gönderdi (+${Math.max(1, Math.floor(amount * 0.3))} coin kazandın)`,
+      data: { kind: "gift", fromUserId: req.userId!, emoji: giftEmoji },
+      channelId: "gifts",
     });
   }
 

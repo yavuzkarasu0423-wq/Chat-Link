@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useApi } from "@/hooks/useApi";
 import { useColors } from "@/hooks/useColors";
+import DailyRewardCard from "@/components/DailyRewardCard";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -182,6 +183,26 @@ export default function HomeScreen() {
               </View>
             </View>
 
+            <DailyRewardCard onClaimed={(_r, balance) => setCoins(balance)} />
+
+            <View style={styles.statsRow}>
+              <Pressable
+                onPress={() => router.push("/leaderboard" as never)}
+                style={({ pressed }) => [styles.statCard, { backgroundColor: "#ede9fe", opacity: pressed ? 0.75 : 1 }]}
+              >
+                <Feather name="award" size={22} color="#7c3aed" />
+                <Text style={styles.statLabel}>Lider Tablosu</Text>
+                <Text style={styles.statHint}>🏆 Aç →</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/vip" as never)}
+                style={({ pressed }) => [styles.statCard, { backgroundColor: "#fef3c7", opacity: pressed ? 0.75 : 1 }]}
+              >
+                <Feather name="star" size={22} color="#a16207" />
+                <Text style={styles.statLabel}>VIP Üyelik</Text>
+                <Text style={[styles.statHint, { color: "#a16207" }]}>👑 Aç →</Text>
+              </Pressable>
+            </View>
           </>
         )}
       </ScrollView>

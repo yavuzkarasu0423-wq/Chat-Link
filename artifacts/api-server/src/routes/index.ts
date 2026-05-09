@@ -15,6 +15,10 @@ import matchesRouter from "./matches";
 import checkoutRouter from "./checkout";
 import broadcastersRouter from "./broadcasters";
 import contactRouter from "./contact";
+import pushRouter from "./push";
+import dailyRewardRouter from "./daily-reward";
+import leaderboardRouter from "./leaderboard";
+import subscriptionRouter from "./subscription";
 
 const router: IRouter = Router();
 
@@ -34,5 +38,9 @@ router.use("/matches", matchesRouter);
 router.use("/checkout", checkoutRouter);
 router.use("/broadcasters", broadcastersRouter);
 router.use("/contact", contactRouter);
+router.use("/push", pushRouter);
+router.use("/daily-reward", dailyRewardRouter);
+router.use("/leaderboard", leaderboardRouter);
+router.use("/subscription", subscriptionRouter);
 
 export default router;
