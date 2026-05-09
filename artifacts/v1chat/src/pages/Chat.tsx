@@ -182,12 +182,13 @@ const FLOAT_CIRCLES = [
   { img: "https://randomuser.me/api/portraits/men/18.jpg", size: 38, style: { left: "38%", top: "84%", animation: "floatCircle2 9s ease-in-out infinite 4s" } },
 ];
 
-function WaitingScreen({ onStop, displayName, photoUrl, country, isConnecting }: {
+function WaitingScreen({ onStop, displayName, photoUrl, country, isConnecting, subtitle }: {
   onStop: () => void;
   displayName?: string;
   photoUrl?: string | null;
   country?: string | null;
   isConnecting?: boolean;
+  subtitle?: string | null;
 }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
@@ -231,6 +232,12 @@ function WaitingScreen({ onStop, displayName, photoUrl, country, isConnecting }:
         <h2 className="text-xl font-bold text-gray-800">
           {isConnecting ? "Bağlantı sağlanıyor..." : "Kullanıcılar aranıyor..."}
         </h2>
+        {subtitle && (
+          <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm border border-white/90 -mt-3">
+            <span>👋</span>
+            <span>{subtitle}</span>
+          </div>
+        )}
 
         {/* Profile photo with spinner ring */}
         <div className="relative w-44 h-44 flex items-center justify-center">
@@ -352,6 +359,7 @@ export default function Chat(props: ChatProps = {}) {
   const [incomingFriendReq, setIncomingFriendReq] = useState<{ fromName: string; fromUserId: string } | null>(null);
   // Filter coin warning toast
   const [filterCoinToast, setFilterCoinToast] = useState<string | null>(null);
+  const [partnerLeftMsg, setPartnerLeftMsg] = useState<string | null>(null);
   // In-call coin purchase modal
   const [showBuyCoins, setShowBuyCoins] = useState(false);
   const [buyCoinsLoading, setBuyCoinsLoading] = useState<string | null>(null);
@@ -690,7 +698,6 @@ export default function Chat(props: ChatProps = {}) {
     });
 
     socket.on("partner-disconnected", () => {
-      setPhase("idle");
       destroyPeer();
       setReportSent(false);
       setShowGiftPanel(false);
@@ -699,6 +706,12 @@ export default function Chat(props: ChatProps = {}) {
       setIncomingFriendReq(null);
       setMessages([]);
       setPartnerProfile(null);
+      setFlyingGifts([]);
+      // Otomatik yeni arama — lobby'e atma
+      setPartnerLeftMsg("Kullanıcı ayrıldı. Yeni eşleşme aranıyor...");
+      setPhase("waiting");
+      socketRef.current?.emit("find-match", { filters: filtersRef.current });
+      setTimeout(() => setPartnerLeftMsg(null), 4000);
     });
 
     socket.on("chat-message", ({ text }: { text: string }) => {
@@ -1046,7 +1059,7 @@ export default function Chat(props: ChatProps = {}) {
     );
   }
   if (phase === "waiting") {
-    return <WaitingScreen onStop={handleStop} displayName={myProfile?.displayName} photoUrl={myProfile?.photoUrl} />;
+    return <WaitingScreen onStop={handleStop} displayName={myProfile?.displayName} photoUrl={myProfile?.photoUrl} subtitle={partnerLeftMsg} />;
   }
   if (phase === "connecting") {
     return (
