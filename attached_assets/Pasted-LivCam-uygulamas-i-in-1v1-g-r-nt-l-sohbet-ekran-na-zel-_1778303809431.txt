@@ -1,0 +1,78 @@
+LivCam uygulaması için 1v1 görüntülü sohbet ekranına özel premium gift sistemi tasarla. Sistem canlı yayın değil, birebir görüntülü konuşma deneyimine uygun olmalı. TikTok, Litmatch, Yubo ve azar tarzı modern sosyal uygulamalardan ilham alınabilir ancak tasarım özgün olsun.
+
+İstenen özellikler:
+
+* Kullanıcı karşı tarafa hediye gönderdiğinde ekran üzerinde animasyon oynasın.
+* Animasyonlar hem gönderen hem alan kullanıcı tarafında senkron çalışsın.
+* Hediye efekti sohbet ekranının üstünde overlay şeklinde görünsün.
+* Tüm animasyonlar romantik, eğlenceli, sosyal ve premium his vermeli.
+* Her hediyenin özel animasyonu olsun:
+
+  * Gül → uçan yapraklar + glow
+  * Kalp → pulse ve particle efekti
+  * Taç → altın ışık ve shine
+  * Roket → hızlı geçiş + ekran shake
+  * Teddy bear → yumuşak bounce animasyonu
+  * Spor araba → motion blur + drift efekti
+* Kullanıcının adı ve gönderdiği hediye animasyon sırasında görünsün.
+* Combo sistemi ekle:
+
+  * Kullanıcı kısa sürede aynı hediyeyi tekrar gönderirse combo artsın
+  * Combo arttıkça efektler büyüsün
+  * x10 / x50 / x100 özel efektleri olsun
+* Gift rarity sistemi:
+
+  * Common
+  * Rare
+  * Epic
+  * Legendary
+* Legendary hediyelerde:
+
+  * Fullscreen sinematik giriş
+  * Ekran glow efekti
+  * Kamera shake
+  * Yoğun particle efekti
+  * Cinematic ses efekti
+  * Özel geçiş animasyonu
+* Modern görsel efektler kullan:
+
+  * Particle systems
+  * Bloom/glow
+  * Motion blur
+  * Floating effects
+  * Dynamic lighting
+  * Smooth easing animations
+* UI tasarımı:
+
+  * Modern ve premium görünüm
+  * Neon + glassmorphism stil
+  * Sosyal uygulama estetiği
+  * Yumuşak geçişler
+  * Gradient ışık efektleri
+* Performans:
+
+  * Mobil cihazlarda akıcı çalışmalı
+  * GPU accelerated rendering kullanılmalı
+  * FPS optimize edilmeli
+  * Düşük cihazlarda kalite otomatik düşebilmeli
+* Teknoloji önerileri:
+
+  * Lottie
+  * Rive
+  * Spine
+  * Canvas/WebGL
+  * React Native Reanimated
+* Ses ve haptic:
+
+  * Her hediyeye özel ses efekti
+  * Hafif titreşim desteği
+  * Premium hediyelerde güçlü haptic feedback
+* Kod yapısı:
+
+  * Modüler architecture
+  * Config tabanlı gift sistemi
+  * Animation manager
+  * Queue manager
+  * Yeni hediye eklemek kolay olsun
+* Amaç:
+  Kullanıcıların sohbet sırasında daha fazla etkileşim kurmasını sağlayan, premium hissiyat veren, viral ve bağımlılık yaratan modern 1v1 görüntülü sohbet gift deneyimi oluşturmak.

@@ -9,6 +9,7 @@ import SimplePeer from "simple-peer";
 import Landing from "./Landing";
 import BroadcasterDashboard from "./BroadcasterDashboard";
 import { useAuth } from "@workspace/replit-auth-web";
+import { GiftOverlay, type GiftOverlayHandle } from "../components/GiftOverlay";
 
 // ─────────────────────────────────────────────
 // Types
@@ -36,15 +37,6 @@ interface SessionStats {
   activeUsers: number;
 }
 
-interface Spark { tx: number; ty: number; color: string; }
-interface FlyingGift {
-  id: string;
-  emoji: string;
-  side: "me" | "partner";
-  offsetX: number;
-  startX: number;
-  sparks: Spark[];
-}
 
 // ─────────────────────────────────────────────
 // Constants
@@ -93,22 +85,6 @@ const REPORT_REASONS = [
   "Reşit olmayan kullanıcı",
   "Yasa Dışı Faaliyetler",
 ];
-
-// ─────────────────────────────────────────────
-// Gift spark helper
-// ─────────────────────────────────────────────
-const SPARK_COLORS = ["#fbbf24", "#f97316", "#ec4899", "#8b5cf6", "#06b6d4", "#22c55e", "#f43f5e", "#a3e635"];
-function makeGiftSparks(): Spark[] {
-  return Array.from({ length: 8 }, (_, i) => {
-    const angle = (i / 8) * Math.PI * 2;
-    const dist = 54 + (i % 2 === 0 ? 14 : 0);
-    return {
-      tx: Math.cos(angle) * dist,
-      ty: Math.sin(angle) * dist,
-      color: SPARK_COLORS[i],
-    };
-  });
-}
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -432,7 +408,7 @@ export default function Chat(props: ChatProps = {}) {
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerAudioOn, setPartnerAudioOn] = useState(true);
   const [partnerVideoOn, setPartnerVideoOn] = useState(true);
-  const [flyingGifts, setFlyingGifts] = useState<FlyingGift[]>([]);
+  const giftOverlayRef = useRef<GiftOverlayHandle>(null);
   const [coinFlash, setCoinFlash] = useState(false);
   // Bug 7: WebRTC reconnect
   const [webrtcReconnecting, setWebrtcReconnecting] = useState(false);
@@ -706,7 +682,6 @@ export default function Chat(props: ChatProps = {}) {
       setIncomingFriendReq(null);
       setMessages([]);
       setPartnerProfile(null);
-      setFlyingGifts([]);
       // Otomatik yeni arama — lobby'e atma
       setPartnerLeftMsg("Kullanıcı ayrıldı. Yeni eşleşme aranıyor...");
       setPhase("waiting");
@@ -734,12 +709,12 @@ export default function Chat(props: ChatProps = {}) {
       setPartnerVideoOn(video);
     });
 
-    socket.on("partner-gift", ({ emoji }: { emoji: string; coins: number }) => {
-      const id = `${Date.now()}-${Math.random()}`;
-      setFlyingGifts((arr) => [...arr, { id, emoji, side: "partner" as const, offsetX: 0, startX: Math.random() * 80 - 40, sparks: makeGiftSparks() }]);
-      setTimeout(() => {
-        setFlyingGifts((arr) => arr.filter((g) => g.id !== id));
-      }, 4200);
+    socket.on("partner-gift", ({ emoji, senderName }: { emoji: string; coins: number; senderName?: string }) => {
+      giftOverlayRef.current?.push({
+        emoji,
+        senderName: senderName ?? partnerProfile?.displayName ?? "Birisi",
+        side: "partner",
+      });
     });
 
     socket.on("banned", () => {
@@ -983,11 +958,11 @@ export default function Chat(props: ChatProps = {}) {
       return;
     }
     // Bug 1 fix: socket.emit("gift") kaldırıldı — sunucu /api/coins/spend sonrası notifyUser() ile push eder
-    const id = `${Date.now()}-${Math.random()}`;
-    setFlyingGifts((arr) => [...arr, { id, emoji, side: "me" as const, offsetX: 0, startX: Math.random() * 60 - 30, sparks: makeGiftSparks() }]);
-    setTimeout(() => {
-      setFlyingGifts((arr) => arr.filter((g) => g.id !== id));
-    }, 4200);
+    giftOverlayRef.current?.push({
+      emoji,
+      senderName: myProfile?.displayName ?? "Sen",
+      side: "me",
+    });
   };
 
   // Auth yüklenirken spinner
@@ -1305,69 +1280,8 @@ export default function Chat(props: ChatProps = {}) {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Flying gifts layer */}
-        <div className="absolute inset-0 pointer-events-none z-40 overflow-hidden">
-          {flyingGifts.map((g) => {
-            const isPartner = g.side === "partner";
-            const emojiSize = isPartner ? 72 : 60;
-            const burstColor = isPartner ? "#f97316" : "#22c55e";
-            return (
-              <div
-                key={g.id}
-                className="absolute"
-                style={{
-                  left: "50%",
-                  bottom: "28%",
-                  marginLeft: `${g.startX - emojiSize / 2}px`,
-                  animation: "giftFly 3.9s ease-out forwards",
-                  willChange: "transform, opacity",
-                }}
-              >
-                {/* Burst ring */}
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: "-10px",
-                    borderRadius: "50%",
-                    border: `3px solid ${burstColor}`,
-                    animation: "giftBurst 0.65s ease-out forwards",
-                  }}
-                />
-
-                {/* Sparkle particles */}
-                {g.sparks.map((s, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      position: "absolute",
-                      left: "50%",
-                      top: "50%",
-                      width: 9,
-                      height: 9,
-                      marginLeft: -4.5,
-                      marginTop: -4.5,
-                      borderRadius: "50%",
-                      backgroundColor: s.color,
-                      ["--tx" as string]: `${s.tx}px`,
-                      ["--ty" as string]: `${s.ty}px`,
-                      animation: `sparkle 0.7s ease-out ${i * 0.045}s forwards`,
-                    }}
-                  />
-                ))}
-
-                {/* Emoji with pop-in */}
-                <div
-                  style={{
-                    animation: "giftPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
-                    filter: isPartner ? "drop-shadow(0 0 12px rgba(249,115,22,0.8))" : "drop-shadow(0 0 10px rgba(34,197,94,0.7))",
-                  }}
-                >
-                  <Twemoji emoji={g.emoji} size={emojiSize} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {/* Premium gift overlay (combo, rarity, cinematic effects) */}
+        <GiftOverlay ref={giftOverlayRef} />
       </div>
 
       {/* ── BOTTOM BAR ── */}

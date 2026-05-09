@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../lib/auth";
 import { db } from "@workspace/db";
-import { coinBalancesTable, coinTransactionsTable } from "@workspace/db/schema";
+import { coinBalancesTable, coinTransactionsTable, profilesTable } from "@workspace/db/schema";
 import { eq, sql, desc, and } from "drizzle-orm";
 import { z } from "zod";
 import { notifyUser } from "../lib/socketio";
@@ -122,9 +122,19 @@ router.post("/spend", requireAuth, async (req, res) => {
       reason: `${giftEmoji} hediye alındı 🎁`,
       relatedUserId: req.userId!,
     });
+    // Sender name for receiver's gift overlay
+    const [senderProfile] = await db
+      .select({ displayName: profilesTable.displayName })
+      .from(profilesTable)
+      .where(eq(profilesTable.userId, req.userId!))
+      .limit(1);
     // Bug 1 fix: Hediye animasyonunu sunucu push eder — istemci socket.emit("gift") kullanmaz
     // Böylece coin harcamadan sahte animasyon gönderme engellenir
-    notifyUser(receiverId, "partner-gift", { emoji: giftEmoji, coins: amount });
+    notifyUser(receiverId, "partner-gift", {
+      emoji: giftEmoji,
+      coins: amount,
+      senderName: senderProfile?.displayName ?? "Birisi",
+    });
   }
 
   res.json({ balance: row.balance });
