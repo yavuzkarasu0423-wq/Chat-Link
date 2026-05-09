@@ -175,12 +175,6 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            <View style={styles.tipCard}>
-              <Feather name="info" size={16} color="#6b7280" />
-              <Text style={styles.tipText}>
-                Görüntülü sohbet için tarayıcıda açılacaktır. Tam özellikler için web uygulamasını kullanabilirsiniz.
-              </Text>
-            </View>
           </>
         )}
       </ScrollView>
@@ -266,13 +260,4 @@ const styles = StyleSheet.create({
   },
   statNum: { fontSize: 24, fontWeight: "800", color: "#111827" },
   statLabel: { fontSize: 13, color: "#6b7280" },
-  tipCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    backgroundColor: "#f9fafb",
-    borderRadius: 12,
-    padding: 14,
-  },
-  tipText: { flex: 1, fontSize: 13, color: "#6b7280", lineHeight: 18 },
 });
