@@ -4,21 +4,22 @@ import { db } from "@workspace/db";
 import {
   broadcasterProfilesTable,
   broadcasterEarningsTable,
-  userRolesTable,
   profilesTable,
   coinTransactionsTable,
 } from "@workspace/db/schema";
-import { eq, and, desc, sql, between, gte, lte } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 
 const router = Router();
 
 // ─── Check broadcaster role ───────────────────────────────────────────────────
+// Broadcaster status is determined by having an active broadcaster_profiles record.
+// This allows admin users to also be broadcasters without needing a separate role row.
 
 async function isBroadcaster(userId: string): Promise<boolean> {
   const [row] = await db
-    .select()
-    .from(userRolesTable)
-    .where(and(eq(userRolesTable.userId, userId), eq(userRolesTable.role, "broadcaster")))
+    .select({ userId: broadcasterProfilesTable.userId })
+    .from(broadcasterProfilesTable)
+    .where(eq(broadcasterProfilesTable.userId, userId))
     .limit(1);
   return !!row;
 }
