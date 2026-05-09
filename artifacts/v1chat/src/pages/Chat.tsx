@@ -953,36 +953,54 @@ export default function Chat(props: ChatProps = {}) {
   // Phase renders
   if (phase === "lobby") {
     return (
-      <Landing
-        onStartChat={startSearch}
-        activeUsers={stats.activeUsers}
-        startLoggedIn={!!authedUser}
-        onLogin={onLogin}
-        onLogout={onLogout}
-        authedUser={authedUser}
-        coins={coins}
-        filters={filters}
-        onFiltersChange={setFilters}
-        forceProfileOpen={profileChecked && needsProfile}
-        onProfileSaved={handleProfileSaved}
-      />
+      <>
+        <Landing
+          onStartChat={startSearch}
+          activeUsers={stats.activeUsers}
+          startLoggedIn={!!authedUser}
+          onLogin={onLogin}
+          onLogout={onLogout}
+          authedUser={authedUser}
+          coins={coins}
+          filters={filters}
+          onFiltersChange={setFilters}
+          forceProfileOpen={profileChecked && needsProfile}
+          onProfileSaved={handleProfileSaved}
+        />
+        {announceToast && (
+          <div className="fixed top-4 left-4 right-4 z-[200] bg-indigo-600 shadow-2xl rounded-2xl p-4 flex items-center gap-3 animate-slide-up">
+            <span className="text-2xl flex-shrink-0">📢</span>
+            <p className="text-sm font-semibold text-white flex-1">{announceToast}</p>
+            <button onClick={() => setAnnounceToast(null)} className="text-indigo-200 hover:text-white text-xl flex-shrink-0">✕</button>
+          </div>
+        )}
+      </>
     );
   }
   if (phase === "idle") {
     return (
-      <Landing
-        onStartChat={startSearch}
-        activeUsers={stats.activeUsers}
-        startLoggedIn
-        onLogin={onLogin}
-        onLogout={onLogout}
-        authedUser={authedUser}
-        coins={coins}
-        filters={filters}
-        onFiltersChange={setFilters}
-        forceProfileOpen={profileChecked && needsProfile}
-        onProfileSaved={handleProfileSaved}
-      />
+      <>
+        <Landing
+          onStartChat={startSearch}
+          activeUsers={stats.activeUsers}
+          startLoggedIn
+          onLogin={onLogin}
+          onLogout={onLogout}
+          authedUser={authedUser}
+          coins={coins}
+          filters={filters}
+          onFiltersChange={setFilters}
+          forceProfileOpen={profileChecked && needsProfile}
+          onProfileSaved={handleProfileSaved}
+        />
+        {announceToast && (
+          <div className="fixed top-4 left-4 right-4 z-[200] bg-indigo-600 shadow-2xl rounded-2xl p-4 flex items-center gap-3 animate-slide-up">
+            <span className="text-2xl flex-shrink-0">📢</span>
+            <p className="text-sm font-semibold text-white flex-1">{announceToast}</p>
+            <button onClick={() => setAnnounceToast(null)} className="text-indigo-200 hover:text-white text-xl flex-shrink-0">✕</button>
+          </div>
+        )}
+      </>
     );
   }
   if (phase === "waiting") {
