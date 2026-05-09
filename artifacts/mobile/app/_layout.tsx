@@ -27,7 +27,9 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="dm/[userId]" options={{ headerShown: true, title: "Mesaj" }} />
+      <Stack.Screen name="dm/[userId]" options={{ headerShown: false }} />
+      <Stack.Screen name="profile-edit" options={{ headerShown: false }} />
+      <Stack.Screen name="coin-history" options={{ headerShown: false }} />
     </Stack>
   );
 }

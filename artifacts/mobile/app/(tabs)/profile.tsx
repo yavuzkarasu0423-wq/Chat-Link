@@ -4,6 +4,8 @@ import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,12 +20,15 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN ?? "";
+
 interface Profile {
   displayName: string;
   photoUrl: string | null;
   age: number;
   country: string;
   bio: string | null;
+  interests: string[];
 }
 
 export default function ProfileScreen() {
@@ -87,13 +92,18 @@ export default function ProfileScreen() {
         style={[styles.headerBg, { paddingTop: topPad + 16 }]}
       >
         <View style={styles.avatarArea}>
-          <View style={styles.avatarCircle}>
-            {profile?.photoUrl ? (
-              <Image source={{ uri: profile.photoUrl }} style={styles.avatarImg} />
-            ) : (
-              <Text style={styles.avatarInitial}>{initial}</Text>
-            )}
-          </View>
+          <Pressable onPress={() => router.push("/profile-edit")} style={styles.avatarWrap}>
+            <View style={styles.avatarCircle}>
+              {profile?.photoUrl ? (
+                <Image source={{ uri: profile.photoUrl }} style={styles.avatarImg} />
+              ) : (
+                <Text style={styles.avatarInitial}>{initial}</Text>
+              )}
+            </View>
+            <View style={styles.editBadge}>
+              <Feather name="camera" size={12} color="#fff" />
+            </View>
+          </Pressable>
           {loading ? (
             <ActivityIndicator color="#4ade80" style={{ marginTop: 12 }} />
           ) : (
@@ -109,10 +119,11 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        <View style={styles.coinRow}>
+        <Pressable onPress={() => router.push("/coin-history")} style={styles.coinRow}>
           <Feather name="award" size={18} color="#f59e0b" />
           <Text style={styles.coinAmount}>{coins} Coin</Text>
-        </View>
+          <Feather name="chevron-right" size={14} color="rgba(255,255,255,0.5)" />
+        </Pressable>
       </LinearGradient>
 
       {profile?.bio && (
@@ -122,25 +133,44 @@ export default function ProfileScreen() {
         </View>
       )}
 
+      {profile?.interests && profile.interests.length > 0 && (
+        <View style={styles.bioCard}>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>İlgi Alanları</Text>
+          <View style={styles.interestWrap}>
+            {profile.interests.map((i) => (
+              <View key={i} style={[styles.interestChip, { backgroundColor: colors.muted }]}>
+                <Text style={[styles.interestText, { color: colors.foreground }]}>{i}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
       <View style={[styles.section, { borderColor: colors.border }]}>
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>Hesap</Text>
 
         <SettingRow
           icon="user"
           label="Profili Düzenle"
-          onPress={() => {}}
+          onPress={() => router.push("/profile-edit")}
+          colors={colors}
+        />
+        <SettingRow
+          icon="award"
+          label="Coin Geçmişi"
+          onPress={() => router.push("/coin-history")}
           colors={colors}
         />
         <SettingRow
           icon="shield"
-          label="Gizlilik"
-          onPress={() => {}}
+          label="Gizlilik Politikası"
+          onPress={() => WebBrowser.openBrowserAsync(`https://${DOMAIN}/privacy`)}
           colors={colors}
         />
         <SettingRow
           icon="bell"
           label="Bildirimler"
-          onPress={() => {}}
+          onPress={() => Alert.alert("Bildirimler", "Bildirim ayarları yakında eklenecek.")}
           colors={colors}
         />
       </View>
@@ -150,13 +180,19 @@ export default function ProfileScreen() {
         <SettingRow
           icon="help-circle"
           label="Yardım & Destek"
-          onPress={() => {}}
+          onPress={() => WebBrowser.openBrowserAsync(`https://${DOMAIN}/#contact`)}
           colors={colors}
         />
         <SettingRow
           icon="file-text"
           label="Kullanım Şartları"
-          onPress={() => {}}
+          onPress={() => WebBrowser.openBrowserAsync(`https://${DOMAIN}/terms`)}
+          colors={colors}
+        />
+        <SettingRow
+          icon="info"
+          label="Hakkımızda"
+          onPress={() => WebBrowser.openBrowserAsync(`https://${DOMAIN}/#about`)}
           colors={colors}
         />
       </View>
@@ -204,6 +240,7 @@ function SettingRow({
 const styles = StyleSheet.create({
   headerBg: { paddingHorizontal: 20, paddingBottom: 24 },
   avatarArea: { alignItems: "center", gap: 8 },
+  avatarWrap: { position: "relative" },
   avatarCircle: {
     width: 88,
     height: 88,
@@ -217,6 +254,19 @@ const styles = StyleSheet.create({
   },
   avatarImg: { width: "100%", height: "100%" },
   avatarInitial: { fontSize: 32, fontWeight: "800", color: "#fff" },
+  editBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#16a34a",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#052e16",
+  },
   name: { fontSize: 22, fontWeight: "800", color: "#fff", marginTop: 4 },
   email: { fontSize: 13, color: "rgba(255,255,255,0.6)" },
   countryAge: { fontSize: 13, color: "rgba(255,255,255,0.5)" },
@@ -233,10 +283,13 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   coinAmount: { fontSize: 16, fontWeight: "700", color: "#fbbf24" },
-  bioCard: { margin: 16, padding: 16, backgroundColor: "#f9fafb", borderRadius: 16 },
+  bioCard: { margin: 16, marginBottom: 0, padding: 16, backgroundColor: "#f9fafb", borderRadius: 16 },
   section: { marginHorizontal: 16, marginTop: 16, borderRadius: 16, borderWidth: 1, overflow: "hidden", backgroundColor: "#fff" },
   sectionLabel: { fontSize: 12, fontWeight: "600", letterSpacing: 0.5, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, textTransform: "uppercase" },
   bioText: { fontSize: 14, lineHeight: 20, marginTop: 4 },
+  interestWrap: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
+  interestChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
+  interestText: { fontSize: 13 },
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
