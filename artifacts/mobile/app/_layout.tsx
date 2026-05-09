@@ -30,6 +30,7 @@ function RootLayoutNav() {
       <Stack.Screen name="dm/[userId]" options={{ headerShown: false }} />
       <Stack.Screen name="profile-edit" options={{ headerShown: false }} />
       <Stack.Screen name="coin-history" options={{ headerShown: false }} />
+      <Stack.Screen name="videochat" options={{ headerShown: false }} />
     </Stack>
   );
 }

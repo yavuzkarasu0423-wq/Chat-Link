@@ -4,7 +4,7 @@ import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import * as WebBrowser from "expo-web-browser";
+import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -85,7 +85,7 @@ export default function HomeScreen() {
 
   const handleVideoChat = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await WebBrowser.openBrowserAsync(`https://${DOMAIN}/`);
+    router.push("/videochat");
   };
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
