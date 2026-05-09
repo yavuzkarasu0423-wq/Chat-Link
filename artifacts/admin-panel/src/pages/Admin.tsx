@@ -103,7 +103,65 @@ interface DemoData {
   byAge: { range: string; count: number }[];
 }
 
-type Tab = "dashboard" | "reports" | "users" | "live" | "coins" | "bans" | "roles" | "audit" | "broadcast" | "matches" | "demographics";
+interface RevenueData {
+  totalPurchases: number;
+  totalCoinsSold: number;
+  dailyPurchases: { day: string; purchases: number; coins: number }[];
+  topBuyers: { userId: string; displayName: string | null; purchases: number; totalCoins: number }[];
+}
+
+interface PhotoRow {
+  userId: string;
+  displayName: string | null;
+  photoUrl: string;
+  country: string | null;
+  age: number | null;
+  gender: string | null;
+}
+
+interface GiftsData {
+  totalGifts: number;
+  totalCoinsGifted: number;
+  topSenders: { userId: string; displayName: string | null; gifts: number; totalCoins: number }[];
+  topReceivers: { userId: string; displayName: string | null; gifts: number; totalCoins: number }[];
+  dailyGifts: { day: string; gifts: number }[];
+}
+
+interface RetentionData {
+  dau: number;
+  wau: number;
+  mau: number;
+  avgMatchDurationSecs: number;
+  newUsersByDay: { day: string; count: number }[];
+  activeByDay: { day: string; count: number }[];
+}
+
+interface PendingData {
+  openReports: number;
+  activeBans: number;
+  newUsersToday: number;
+  matchesToday: number;
+  purchasesToday: number;
+}
+
+interface CoinPackage {
+  id: string;
+  coins: number;
+  price: number;
+  label: string;
+}
+
+interface HealthData {
+  status: string;
+  timestamp: string;
+  uptimeSeconds: number;
+  nodeVersion: string;
+  liveUsers: number;
+  db: { ok: boolean; latencyMs: number };
+  memory: { heapUsedMb: number; heapTotalMb: number; rssMb: number };
+}
+
+type Tab = "dashboard" | "reports" | "users" | "live" | "coins" | "bans" | "roles" | "audit" | "broadcast" | "matches" | "demographics" | "revenue" | "photos" | "gifts" | "retention" | "packages" | "health";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -452,7 +510,7 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState("");
   const [userCountry, setUserCountry] = useState("");
   const [userGender, setUserGender] = useState("");
-  const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Live
   const [liveUsers, setLiveUsers] = useState<LiveUser[]>([]);
@@ -492,10 +550,39 @@ export default function AdminPage() {
   const [matchTotal, setMatchTotal] = useState(0);
   const [matchOffset, setMatchOffset] = useState(0);
   const [matchUserFilter, setMatchUserFilter] = useState("");
-  const matchFilterTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const matchFilterTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Demographics
   const [demoData, setDemoData] = useState<DemoData | null>(null);
+
+  // Revenue
+  const [revenueData, setRevenueData] = useState<RevenueData | null>(null);
+  const [revDays, setRevDays] = useState(30);
+
+  // Photos
+  const [photos, setPhotos] = useState<PhotoRow[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
+
+  // Gifts
+  const [giftsData, setGiftsData] = useState<GiftsData | null>(null);
+
+  // Retention
+  const [retentionData, setRetentionData] = useState<RetentionData | null>(null);
+
+  // Pending tasks
+  const [pending, setPending] = useState<PendingData | null>(null);
+
+  // Packages
+  const [packages, setPackages] = useState<CoinPackage[]>([]);
+  const [editingPkg, setEditingPkg] = useState<string | null>(null);
+  const [pkgCoins, setPkgCoins] = useState("");
+  const [pkgPrice, setPkgPrice] = useState("");
+  const [pkgLabel, setPkgLabel] = useState("");
+  const [pkgMsg, setPkgMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // Health
+  const [healthData, setHealthData] = useState<HealthData | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
 
   // ── Auth check ──────────────────────────────────────────────────────────
 
@@ -568,9 +655,34 @@ export default function AdminPage() {
       loadMatches();
     } else if (tab === "demographics") {
       apiFetch("/api/admin/stats/demographics").then((r) => r.json()).then((d: DemoData) => setDemoData(d));
+    } else if (tab === "revenue") {
+      setRevenueData(null);
+      apiFetch(`/api/admin/revenue?days=${revDays}`).then((r) => r.json()).then((d: RevenueData) => setRevenueData(d));
+    } else if (tab === "photos") {
+      setPhotosLoading(true);
+      apiFetch("/api/admin/photos").then((r) => r.json()).then((d: { photos: PhotoRow[] }) => { setPhotos(d.photos || []); setPhotosLoading(false); });
+    } else if (tab === "gifts") {
+      setGiftsData(null);
+      apiFetch("/api/admin/gifts/stats").then((r) => r.json()).then((d: GiftsData) => setGiftsData(d));
+    } else if (tab === "retention") {
+      setRetentionData(null);
+      apiFetch("/api/admin/retention").then((r) => r.json()).then((d: RetentionData) => setRetentionData(d));
+    } else if (tab === "packages") {
+      apiFetch("/api/admin/packages").then((r) => r.json()).then((d: { packages: CoinPackage[] }) => setPackages(d.packages || []));
+    } else if (tab === "health") {
+      setHealthData(null);
+      setHealthLoading(true);
+      apiFetch("/api/admin/health").then((r) => r.json()).then((d: HealthData) => { setHealthData(d); setHealthLoading(false); });
     }
+    return;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, tab, dashDays, reportStatus, txOffset, auditOffset]);
+  }, [allowed, tab, dashDays, reportStatus, txOffset, auditOffset, revDays]);
+
+  // Pending tasks — load on dashboard or on auth
+  useEffect(() => {
+    if (!allowed) return;
+    apiFetch("/api/admin/pending").then((r) => r.json()).then((d: PendingData) => setPending(d)).catch(() => {});
+  }, [allowed, tab]);
 
   // ── User loader ──────────────────────────────────────────────────────────
 
@@ -678,7 +790,7 @@ export default function AdminPage() {
     );
   }
 
-  const navItems: { key: Tab; label: string; icon: string }[] = [
+  const navItems: { key: Tab; label: string; icon: string; group?: string }[] = [
     { key: "dashboard", label: "Dashboard", icon: "📊" },
     { key: "reports", label: "Şikayetler", icon: "⚠️" },
     { key: "users", label: "Kullanıcılar", icon: "👥" },
@@ -690,6 +802,12 @@ export default function AdminPage() {
     { key: "broadcast", label: "Duyuru", icon: "📢" },
     { key: "roles", label: "Roller", icon: "🛡️" },
     { key: "audit", label: "Audit Log", icon: "📋" },
+    { key: "revenue", label: "Gelir", icon: "💳" },
+    { key: "photos", label: "Foto Moderasyon", icon: "🖼️" },
+    { key: "gifts", label: "Hediye İstatistikleri", icon: "🎁" },
+    { key: "retention", label: "Kullanıcı Tutma", icon: "📈" },
+    { key: "packages", label: "Coin Paketleri", icon: "📦" },
+    { key: "health", label: "Sistem Sağlığı", icon: "🩺" },
   ];
 
   return (
@@ -770,6 +888,34 @@ export default function AdminPage() {
               <StatCard label="Platform Coini" value={stats?.totalCoins ?? 0} icon="🪙" color="orange" />
               <StatCard label="Aktif Ban" value={stats?.activeBans ?? 0} icon="🚫" color="red" />
             </div>
+
+            {/* ── Bugünün özeti ── */}
+            {pending && (
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">📅 Bugün</p>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {[
+                    { label: "Yeni Kullanıcı", value: pending.newUsersToday, icon: "🆕", color: "emerald", onClick: () => setTab("users") },
+                    { label: "Eşleşme", value: pending.matchesToday, icon: "🎥", color: "purple", onClick: () => setTab("matches") },
+                    { label: "Coin Satın Alma", value: pending.purchasesToday, icon: "💳", color: "orange", onClick: () => setTab("revenue") },
+                    { label: "Bekleyen Şikayet", value: pending.openReports, icon: "⚠️", color: "red", onClick: () => setTab("reports") },
+                    { label: "Aktif Ban", value: pending.activeBans, icon: "🚫", color: "red", onClick: () => setTab("bans") },
+                  ].map((c) => (
+                    <button key={c.label} onClick={c.onClick}
+                      className={`bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl p-3 text-left transition-colors group`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-gray-400 text-xs">{c.label}</span>
+                        <span className="text-lg">{c.icon}</span>
+                      </div>
+                      <p className={`text-2xl font-black ${c.value > 0 && (c.color === "red") ? "text-red-400" : c.value > 0 && c.color === "emerald" ? "text-emerald-400" : c.value > 0 && c.color === "orange" ? "text-orange-400" : c.value > 0 && c.color === "purple" ? "text-purple-400" : "text-white"}`}>
+                        {c.value.toLocaleString("tr-TR")}
+                      </p>
+                      <p className="text-[10px] text-gray-600 mt-1 group-hover:text-gray-400 transition-colors">Detay →</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {dashboard ? (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1384,6 +1530,423 @@ export default function AdminPage() {
             )}
           </div>
         )}
+        {/* ═══════════════ REVENUE ═══════════════ */}
+        {tab === "revenue" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h2 className="text-xl font-black text-white">💳 Gelir & Ödeme Takibi</h2>
+              <div className="flex gap-1">
+                {[7, 14, 30, 90].map((d) => (
+                  <button key={d} onClick={() => setRevDays(d)}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${revDays === d ? "bg-orange-600 text-white" : "bg-gray-800 text-gray-400 hover:text-gray-200"}`}>
+                    {d}g
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {!revenueData ? (
+              <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /></div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <StatCard label="Toplam Satın Alma" value={revenueData.totalPurchases} icon="🛒" color="orange" />
+                  <StatCard label="Toplam Satılan Coin" value={revenueData.totalCoinsSold.toLocaleString("tr-TR")} icon="🪙" color="orange" />
+                </div>
+
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Günlük Satın Alma ({revDays} gün)</p>
+                  {revenueData.dailyPurchases.length === 0 ? (
+                    <p className="text-gray-600 text-sm text-center py-6">Bu dönemde satın alma yok.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {revenueData.dailyPurchases.map((d) => (
+                        <div key={d.day} className="flex items-center gap-3 text-sm">
+                          <span className="text-gray-500 text-xs w-20 shrink-0">{fmtDate(d.day)}</span>
+                          <div className="flex-1 bg-gray-800 rounded-full h-2">
+                            <div className="h-2 rounded-full bg-orange-500" style={{ width: `${Math.max((d.purchases / Math.max(...revenueData.dailyPurchases.map((x) => x.purchases), 1)) * 100, 2)}%` }} />
+                          </div>
+                          <span className="text-orange-300 font-bold text-xs w-8 text-right">{d.purchases}</span>
+                          <span className="text-yellow-400 text-xs w-20 text-right">{d.coins.toLocaleString("tr-TR")} 🪙</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-800">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">🏆 En Çok Satın Alan Kullanıcılar</p>
+                  </div>
+                  {revenueData.topBuyers.length === 0 ? (
+                    <p className="text-gray-600 text-sm text-center py-8">Henüz satın alma yok.</p>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-800/50 text-gray-400 text-xs">
+                        <tr>
+                          <th className="text-left p-3">Kullanıcı</th>
+                          <th className="text-right p-3">Satın Alma</th>
+                          <th className="text-right p-3">Toplam Coin</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {revenueData.topBuyers.map((b, i) => (
+                          <tr key={b.userId} className="hover:bg-gray-800/30 cursor-pointer" onClick={() => setSelectedUserId(b.userId)}>
+                            <td className="p-3 flex items-center gap-2">
+                              <span className="text-gray-600 font-mono text-xs w-5">{i + 1}.</span>
+                              <div>
+                                <p className="text-gray-200 font-semibold text-sm">{b.displayName ?? "—"}</p>
+                                <p className="text-gray-600 font-mono text-[10px]">{b.userId.slice(0, 12)}</p>
+                              </div>
+                            </td>
+                            <td className="p-3 text-right text-orange-300 font-bold">{b.purchases}</td>
+                            <td className="p-3 text-right text-yellow-400 font-bold">{b.totalCoins.toLocaleString("tr-TR")}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════ PHOTOS ═══════════════ */}
+        {tab === "photos" && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-xl font-black text-white">🖼️ Profil Fotoğrafı Moderasyonu</h2>
+              <span className="text-xs text-gray-500">{photos.length} fotoğraf</span>
+              <button onClick={() => { setPhotosLoading(true); apiFetch("/api/admin/photos").then((r) => r.json()).then((d: { photos: PhotoRow[] }) => { setPhotos(d.photos || []); setPhotosLoading(false); }); }}
+                className="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 px-3 py-1.5 rounded-lg transition-colors">
+                🔄 Yenile
+              </button>
+            </div>
+            {photosLoading ? (
+              <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+            ) : photos.length === 0 ? (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center">
+                <p className="text-4xl mb-3">🖼️</p>
+                <p className="text-gray-400">Profil fotoğrafı olan kullanıcı yok.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {photos.map((p) => (
+                  <div key={p.userId} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group hover:border-gray-600 transition-colors">
+                    <div className="relative aspect-square">
+                      <img src={p.photoUrl} alt={p.displayName ?? ""} className="w-full h-full object-cover" />
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`${p.displayName ?? p.userId} kullanıcısının fotoğrafı silinsin mi?`)) return;
+                          await apiFetch(`/api/admin/photos/${p.userId}`, { method: "DELETE" });
+                          setPhotos((prev) => prev.filter((x) => x.userId !== p.userId));
+                          setBanMsg(`${p.displayName ?? p.userId} fotoğrafı silindi.`);
+                          setTimeout(() => setBanMsg(null), 3000);
+                        }}
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full transition-all">
+                        Sil
+                      </button>
+                    </div>
+                    <div className="p-2">
+                      <p className="text-xs font-semibold text-gray-200 truncate">{p.displayName ?? "—"}</p>
+                      <p className="text-[10px] text-gray-500">{[p.country, p.age ? `${p.age}y` : null, p.gender].filter(Boolean).join(" · ")}</p>
+                      <button onClick={() => setSelectedUserId(p.userId)} className="text-[10px] text-indigo-400 hover:text-indigo-300 mt-1 transition-colors">Profili Gör →</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════ GIFTS ═══════════════ */}
+        {tab === "gifts" && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-black text-white">🎁 Hediye İstatistikleri</h2>
+            {!giftsData ? (
+              <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <StatCard label="Toplam Hediye" value={giftsData.totalGifts} icon="🎁" color="purple" />
+                  <StatCard label="Toplam Harcanan Coin" value={giftsData.totalCoinsGifted.toLocaleString("tr-TR")} icon="🪙" color="orange" />
+                </div>
+
+                {giftsData.dailyGifts.length > 0 && (
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Son 30 Gün — Günlük Hediye</p>
+                    <MiniBar data={giftsData.dailyGifts.map((d) => ({ day: d.day, count: d.gifts }))} color="#a855f7" height={48} />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-800">
+                      <p className="text-xs font-semibold text-gray-400 uppercase">🏆 En Çok Hediye Gönderen</p>
+                    </div>
+                    {giftsData.topSenders.length === 0 ? (
+                      <p className="text-gray-600 text-sm text-center py-8">Veri yok</p>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-800/50 text-gray-400 text-xs"><tr><th className="text-left p-3">Kullanıcı</th><th className="text-right p-3">Hediye</th><th className="text-right p-3">Coin</th></tr></thead>
+                        <tbody className="divide-y divide-gray-800">
+                          {giftsData.topSenders.map((s, i) => (
+                            <tr key={s.userId} className="hover:bg-gray-800/30 cursor-pointer" onClick={() => setSelectedUserId(s.userId)}>
+                              <td className="p-3"><span className="text-gray-600 text-xs mr-2">{i + 1}.</span><span className="text-gray-200">{s.displayName ?? "—"}</span></td>
+                              <td className="p-3 text-right text-purple-300 font-bold">{s.gifts}</td>
+                              <td className="p-3 text-right text-yellow-400 text-xs">{s.totalCoins.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-800">
+                      <p className="text-xs font-semibold text-gray-400 uppercase">🎉 En Çok Hediye Alan</p>
+                    </div>
+                    {giftsData.topReceivers.length === 0 ? (
+                      <p className="text-gray-600 text-sm text-center py-8">Veri yok</p>
+                    ) : (
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-800/50 text-gray-400 text-xs"><tr><th className="text-left p-3">Kullanıcı</th><th className="text-right p-3">Hediye</th><th className="text-right p-3">Coin</th></tr></thead>
+                        <tbody className="divide-y divide-gray-800">
+                          {giftsData.topReceivers.map((r, i) => (
+                            <tr key={r.userId} className="hover:bg-gray-800/30 cursor-pointer" onClick={() => setSelectedUserId(r.userId)}>
+                              <td className="p-3"><span className="text-gray-600 text-xs mr-2">{i + 1}.</span><span className="text-gray-200">{r.displayName ?? "—"}</span></td>
+                              <td className="p-3 text-right text-emerald-300 font-bold">{r.gifts}</td>
+                              <td className="p-3 text-right text-yellow-400 text-xs">{r.totalCoins.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════ RETENTION ═══════════════ */}
+        {tab === "retention" && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-black text-white">📈 Kullanıcı Tutma (Retention)</h2>
+            {!retentionData ? (
+              <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatCard label="Bugün Aktif (DAU)" value={retentionData.dau} icon="📅" color="indigo" sub="Eşleşme yapan" />
+                  <StatCard label="Bu Hafta (WAU)" value={retentionData.wau} icon="📆" color="purple" sub="7 günlük" />
+                  <StatCard label="Bu Ay (MAU)" value={retentionData.mau} icon="🗓️" color="orange" sub="30 günlük" />
+                  <StatCard label="Ort. Sohbet Süresi" value={fmtDuration(retentionData.avgMatchDurationSecs)} icon="⏱️" color="emerald" />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">📥 Yeni Kayıt (Son 30 Gün)</p>
+                    {retentionData.newUsersByDay.length === 0 ? (
+                      <p className="text-gray-600 text-xs text-center py-4">Veri yok</p>
+                    ) : (
+                      <MiniBar data={retentionData.newUsersByDay} color="#6366f1" height={56} />
+                    )}
+                  </div>
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">🎥 Günlük Aktif Kullanıcı (Son 30 Gün)</p>
+                    {retentionData.activeByDay.length === 0 ? (
+                      <p className="text-gray-600 text-xs text-center py-4">Veri yok</p>
+                    ) : (
+                      <MiniBar data={retentionData.activeByDay} color="#10b981" height={56} />
+                    )}
+                  </div>
+                </div>
+
+                {retentionData.dau > 0 && retentionData.mau > 0 && (
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">📊 Bağlılık Oranları</p>
+                    <div className="space-y-3">
+                      {[
+                        { label: "DAU / MAU (Yapışkanlık)", value: retentionData.mau > 0 ? Math.round((retentionData.dau / retentionData.mau) * 100) : 0, color: "#6366f1" },
+                        { label: "WAU / MAU", value: retentionData.mau > 0 ? Math.round((retentionData.wau / retentionData.mau) * 100) : 0, color: "#a855f7" },
+                      ].map((m) => (
+                        <div key={m.label} className="flex items-center gap-3">
+                          <span className="text-xs text-gray-400 w-40 shrink-0">{m.label}</span>
+                          <div className="flex-1 bg-gray-800 rounded-full h-2">
+                            <div className="h-2 rounded-full" style={{ width: `${m.value}%`, backgroundColor: m.color }} />
+                          </div>
+                          <span className="text-xs font-bold text-gray-300 w-10 text-right">{m.value}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════ PACKAGES ═══════════════ */}
+        {tab === "packages" && (
+          <div className="space-y-4 max-w-2xl">
+            <h2 className="text-xl font-black text-white">📦 Coin Paketi Yönetimi</h2>
+            <p className="text-sm text-gray-400">Paket bilgileri sunucu bellekte tutulur; sunucu yeniden başlatıldığında varsayılanlara döner.</p>
+
+            {pkgMsg && (
+              <div className={`px-4 py-2.5 rounded-xl text-sm font-semibold ${pkgMsg.ok ? "bg-emerald-900/50 border border-emerald-700 text-emerald-300" : "bg-red-900/50 border border-red-700 text-red-300"}`}>
+                {pkgMsg.ok ? "✅" : "❌"} {pkgMsg.text}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {packages.map((pkg) => (
+                <div key={pkg.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                  {editingPkg === pkg.id ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-mono text-gray-500">{pkg.id}</span>
+                        <button onClick={() => { setEditingPkg(null); setPkgMsg(null); }} className="ml-auto text-xs text-gray-500 hover:text-gray-300">✕ İptal</button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[10px] text-gray-500 uppercase">Etiket</label>
+                          <input value={pkgLabel} onChange={(e) => setPkgLabel(e.target.value)} placeholder={pkg.label}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 mt-1" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-500 uppercase">Coin Miktarı</label>
+                          <input type="number" value={pkgCoins} onChange={(e) => setPkgCoins(e.target.value)} placeholder={String(pkg.coins)}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 mt-1" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-500 uppercase">Fiyat (Kuruş)</label>
+                          <input type="number" value={pkgPrice} onChange={(e) => setPkgPrice(e.target.value)} placeholder={String(pkg.price)}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-indigo-500 mt-1" />
+                        </div>
+                      </div>
+                      <button onClick={async () => {
+                        setPkgMsg(null);
+                        const res = await apiFetch(`/api/admin/packages/${pkg.id}`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ coins: pkgCoins ? Number(pkgCoins) : undefined, price: pkgPrice ? Number(pkgPrice) : undefined, label: pkgLabel || undefined }),
+                        });
+                        const d = await res.json() as { ok?: boolean; package?: CoinPackage; error?: string };
+                        if (res.ok && d.ok && d.package) {
+                          setPackages((prev) => prev.map((p) => p.id === pkg.id ? d.package! : p));
+                          setPkgMsg({ ok: true, text: `${pkg.id} paketi güncellendi.` });
+                          setEditingPkg(null); setPkgCoins(""); setPkgPrice(""); setPkgLabel("");
+                        } else {
+                          setPkgMsg({ ok: false, text: d.error ?? "Hata" });
+                        }
+                      }} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl font-semibold text-sm transition-colors">
+                        💾 Kaydet
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-bold text-gray-200">{pkg.label}</span>
+                          <span className="text-[10px] font-mono text-gray-600 bg-gray-800 px-2 py-0.5 rounded">{pkg.id}</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-gray-400">
+                          <span>🪙 <strong className="text-yellow-400">{pkg.coins.toLocaleString("tr-TR")}</strong> coin</span>
+                          <span>💰 <strong className="text-emerald-400">₺{(pkg.price / 100).toFixed(2)}</strong></span>
+                          <span className="text-gray-600">{(pkg.coins / (pkg.price / 100)).toFixed(0)} coin/TL</span>
+                        </div>
+                      </div>
+                      <button onClick={() => { setEditingPkg(pkg.id); setPkgCoins(String(pkg.coins)); setPkgPrice(String(pkg.price)); setPkgLabel(pkg.label); }}
+                        className="bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs px-4 py-2 rounded-xl transition-colors">
+                        ✏️ Düzenle
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════ HEALTH ═══════════════ */}
+        {tab === "health" && (
+          <div className="space-y-4 max-w-2xl">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-black text-white">🩺 Sistem Sağlığı</h2>
+              <button onClick={() => {
+                setHealthData(null); setHealthLoading(true);
+                apiFetch("/api/admin/health").then((r) => r.json()).then((d: HealthData) => { setHealthData(d); setHealthLoading(false); });
+              }} className="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 px-3 py-1.5 rounded-lg transition-colors">
+                🔄 Yenile
+              </button>
+            </div>
+
+            {healthLoading || !healthData ? (
+              <div className="flex items-center justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" /></div>
+            ) : (
+              <>
+                <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl border ${healthData.status === "ok" ? "bg-emerald-900/30 border-emerald-700/50" : "bg-red-900/30 border-red-700/50"}`}>
+                  <span className="text-3xl">{healthData.status === "ok" ? "✅" : "⚠️"}</span>
+                  <div>
+                    <p className="font-bold text-white text-lg">{healthData.status === "ok" ? "Sistem Sağlıklı" : "Sorun Tespit Edildi"}</p>
+                    <p className="text-xs text-gray-400">{new Date(healthData.timestamp).toLocaleString("tr-TR")}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: "Çevrimiçi Kullanıcı", value: String(healthData.liveUsers), icon: "🟢", color: healthData.liveUsers > 0 ? "emerald" : "indigo" },
+                    { label: "Sunucu Çalışma Süresi", value: `${Math.floor(healthData.uptimeSeconds / 3600)}s ${Math.floor((healthData.uptimeSeconds % 3600) / 60)}d`, icon: "⏱️", color: "indigo" },
+                    { label: "Veritabanı", value: healthData.db.ok ? `${healthData.db.latencyMs}ms` : "Bağlantı Hatası", icon: "🗄️", color: healthData.db.ok ? "emerald" : "red" },
+                    { label: "Node.js", value: healthData.nodeVersion, icon: "⚙️", color: "indigo" },
+                  ].map((item) => (
+                    <StatCard key={item.label} label={item.label} value={item.value} icon={item.icon} color={item.color} />
+                  ))}
+                </div>
+
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">🧠 Bellek Kullanımı</p>
+                  <div className="space-y-3">
+                    {[
+                      { label: "Heap Kullanılan", used: healthData.memory.heapUsedMb, total: healthData.memory.heapTotalMb, color: "#6366f1" },
+                      { label: "RSS (Toplam)", used: healthData.memory.rssMb, total: Math.max(healthData.memory.rssMb, 512), color: "#a855f7" },
+                    ].map((m) => (
+                      <div key={m.label}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-gray-400">{m.label}</span>
+                          <span className="text-xs font-bold text-gray-300">{m.used} MB / {m.total} MB</span>
+                        </div>
+                        <div className="bg-gray-800 rounded-full h-2">
+                          <div className="h-2 rounded-full transition-all" style={{ width: `${Math.min((m.used / m.total) * 100, 100)}%`, backgroundColor: m.color }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-gray-400 uppercase mb-3">🔌 Servis Durumu</p>
+                  <div className="space-y-2">
+                    {[
+                      { name: "API Server", ok: true },
+                      { name: "PostgreSQL", ok: healthData.db.ok },
+                      { name: "Socket.IO", ok: true },
+                    ].map((s) => (
+                      <div key={s.name} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
+                        <span className="text-sm text-gray-300">{s.name}</span>
+                        <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${s.ok ? "bg-emerald-900/60 text-emerald-300" : "bg-red-900/60 text-red-300"}`}>
+                          {s.ok ? "● Çevrimiçi" : "● Hata"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
       </main>
 
       {/* ── User Detail Modal ── */}

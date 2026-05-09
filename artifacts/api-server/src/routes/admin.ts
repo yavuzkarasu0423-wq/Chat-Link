@@ -619,4 +619,263 @@ router.get("/audit-log", async (req, res) => {
   res.json({ logs, total });
 });
 
+// ─── Revenue ────────────────────────────────────────────────────────────────
+
+router.get("/revenue", async (req, res) => {
+  const days = Math.min(Math.max(Number(req.query.days ?? 30), 7), 90);
+
+  const purchaseStatsResult = await db.execute(sql`
+    SELECT count(*)::int as total_purchases,
+           coalesce(sum(amount),0)::int as total_coins_sold
+    FROM coin_transactions
+    WHERE reason LIKE '%Stripe%'
+  `);
+
+  const dailyPurchases = await db.execute(sql`
+    SELECT date_trunc('day', created_at AT TIME ZONE 'UTC')::date AS day,
+           count(*)::int AS purchases,
+           coalesce(sum(amount),0)::int AS coins
+    FROM coin_transactions
+    WHERE reason LIKE '%Stripe%'
+      AND created_at >= NOW() - INTERVAL '1 day' * ${days}
+    GROUP BY day ORDER BY day
+  `);
+
+  const topBuyers = await db.execute(sql`
+    SELECT ct.user_id as "userId", p.display_name as "displayName",
+           count(*)::int as purchases,
+           coalesce(sum(ct.amount),0)::int as "totalCoins"
+    FROM coin_transactions ct
+    LEFT JOIN profiles p ON p.user_id = ct.user_id
+    WHERE ct.reason LIKE '%Stripe%'
+    GROUP BY ct.user_id, p.display_name
+    ORDER BY purchases DESC
+    LIMIT 10
+  `);
+
+  const row = purchaseStatsResult.rows[0] as { total_purchases: number; total_coins_sold: number } | undefined;
+  res.json({
+    totalPurchases: row?.total_purchases ?? 0,
+    totalCoinsSold: row?.total_coins_sold ?? 0,
+    dailyPurchases: dailyPurchases.rows,
+    topBuyers: topBuyers.rows,
+  });
+});
+
+// ─── Photo Moderation ────────────────────────────────────────────────────────
+
+router.get("/photos", async (_req, res) => {
+  const photos = await db
+    .select({
+      userId: profilesTable.userId,
+      displayName: profilesTable.displayName,
+      photoUrl: profilesTable.photoUrl,
+      country: profilesTable.country,
+      age: profilesTable.age,
+      gender: profilesTable.gender,
+    })
+    .from(profilesTable)
+    .where(sql`${profilesTable.photoUrl} IS NOT NULL AND ${profilesTable.photoUrl} != ''`)
+    .orderBy(desc(profilesTable.userId))
+    .limit(300);
+  res.json({ photos });
+});
+
+router.delete("/photos/:userId", async (req, res) => {
+  await db.update(profilesTable).set({ photoUrl: null }).where(eq(profilesTable.userId, req.params.userId));
+  await auditLog(req, "photo_clear", req.params.userId);
+  res.json({ ok: true });
+});
+
+// ─── Gifts Stats ─────────────────────────────────────────────────────────────
+
+router.get("/gifts/stats", async (_req, res) => {
+  const totalsResult = await db.execute(sql`
+    SELECT count(*)::int as total_gifts,
+           coalesce(sum(ABS(amount)),0)::int as total_coins_gifted
+    FROM coin_transactions
+    WHERE amount < 0
+      AND (reason LIKE '%hediye%' OR reason LIKE '%gift%' OR reason LIKE '%🎁%')
+  `);
+
+  const topSenders = await db.execute(sql`
+    SELECT ct.user_id as "userId", p.display_name as "displayName",
+           count(*)::int as gifts,
+           coalesce(sum(ABS(ct.amount)),0)::int as "totalCoins"
+    FROM coin_transactions ct
+    LEFT JOIN profiles p ON p.user_id = ct.user_id
+    WHERE ct.amount < 0
+      AND (ct.reason LIKE '%hediye%' OR ct.reason LIKE '%gift%' OR ct.reason LIKE '%🎁%')
+    GROUP BY ct.user_id, p.display_name
+    ORDER BY gifts DESC LIMIT 10
+  `);
+
+  const topReceivers = await db.execute(sql`
+    SELECT ct.user_id as "userId", p.display_name as "displayName",
+           count(*)::int as gifts,
+           coalesce(sum(ct.amount),0)::int as "totalCoins"
+    FROM coin_transactions ct
+    LEFT JOIN profiles p ON p.user_id = ct.user_id
+    WHERE ct.amount > 0
+      AND (ct.reason LIKE '%hediye%' OR ct.reason LIKE '%gift%' OR ct.reason LIKE '%🎁%')
+    GROUP BY ct.user_id, p.display_name
+    ORDER BY gifts DESC LIMIT 10
+  `);
+
+  const dailyGifts = await db.execute(sql`
+    SELECT date_trunc('day', created_at AT TIME ZONE 'UTC')::date AS day,
+           count(*)::int AS gifts
+    FROM coin_transactions
+    WHERE amount < 0
+      AND (reason LIKE '%hediye%' OR reason LIKE '%gift%' OR reason LIKE '%🎁%')
+      AND created_at >= NOW() - INTERVAL '30 days'
+    GROUP BY day ORDER BY day
+  `);
+
+  const t = totalsResult.rows[0] as { total_gifts: number; total_coins_gifted: number } | undefined;
+  res.json({
+    totalGifts: t?.total_gifts ?? 0,
+    totalCoinsGifted: t?.total_coins_gifted ?? 0,
+    topSenders: topSenders.rows,
+    topReceivers: topReceivers.rows,
+    dailyGifts: dailyGifts.rows,
+  });
+});
+
+// ─── Retention ───────────────────────────────────────────────────────────────
+
+router.get("/retention", async (_req, res) => {
+  const dau = await db.execute(sql`
+    SELECT count(DISTINCT user_a_id)::int AS count
+    FROM match_history WHERE started_at >= date_trunc('day', NOW())
+  `);
+  const wau = await db.execute(sql`
+    SELECT count(DISTINCT user_a_id)::int AS count
+    FROM match_history WHERE started_at >= NOW() - INTERVAL '7 days'
+  `);
+  const mau = await db.execute(sql`
+    SELECT count(DISTINCT user_a_id)::int AS count
+    FROM match_history WHERE started_at >= NOW() - INTERVAL '30 days'
+  `);
+
+  const newUsersByDay = await db.execute(sql`
+    SELECT date_trunc('day', created_at AT TIME ZONE 'UTC')::date AS day,
+           count(*)::int as count
+    FROM users
+    WHERE created_at >= NOW() - INTERVAL '30 days'
+    GROUP BY day ORDER BY day
+  `);
+
+  const activeByDay = await db.execute(sql`
+    SELECT date_trunc('day', started_at AT TIME ZONE 'UTC')::date AS day,
+           count(DISTINCT user_a_id)::int as count
+    FROM match_history
+    WHERE started_at >= NOW() - INTERVAL '30 days'
+    GROUP BY day ORDER BY day
+  `);
+
+  const avgMatchDuration = await db.execute(sql`
+    SELECT coalesce(avg(duration_seconds)::int, 0) AS avg_secs
+    FROM match_history WHERE duration_seconds IS NOT NULL
+  `);
+
+  const avgRow = avgMatchDuration.rows[0] as { avg_secs: number } | undefined;
+
+  res.json({
+    dau: (dau.rows[0] as { count: number })?.count ?? 0,
+    wau: (wau.rows[0] as { count: number })?.count ?? 0,
+    mau: (mau.rows[0] as { count: number })?.count ?? 0,
+    avgMatchDurationSecs: avgRow?.avg_secs ?? 0,
+    newUsersByDay: newUsersByDay.rows,
+    activeByDay: activeByDay.rows,
+  });
+});
+
+// ─── Pending Tasks Summary ────────────────────────────────────────────────────
+
+router.get("/pending", async (_req, res) => {
+  const [{ openReports }] = await db
+    .select({ openReports: sql<number>`count(*)::int` })
+    .from(userReportsTable).where(eq(userReportsTable.status, "open"));
+
+  const [{ activeBans }] = await db
+    .select({ activeBans: sql<number>`count(*)::int` })
+    .from(userBansTable)
+    .where(sql`${userBansTable.expiresAt} IS NULL OR ${userBansTable.expiresAt} > NOW()`);
+
+  const [{ newUsersToday }] = await db
+    .select({ newUsersToday: sql<number>`count(*)::int` })
+    .from(usersTable)
+    .where(sql`${usersTable.createdAt} >= date_trunc('day', NOW())`);
+
+  const [{ matchesToday }] = await db
+    .select({ matchesToday: sql<number>`count(*)::int` })
+    .from(matchHistoryTable)
+    .where(sql`${matchHistoryTable.startedAt} >= date_trunc('day', NOW())`);
+
+  const [{ purchasesToday }] = await db
+    .select({ purchasesToday: sql<number>`count(*)::int` })
+    .from(coinTransactionsTable)
+    .where(sql`${coinTransactionsTable.reason} LIKE '%Stripe%' AND ${coinTransactionsTable.createdAt} >= date_trunc('day', NOW())`);
+
+  res.json({ openReports, activeBans, newUsersToday, matchesToday, purchasesToday });
+});
+
+// ─── Coin Packages ────────────────────────────────────────────────────────────
+
+const adminCoinPackages = [
+  { id: "pkg_450",   coins: 450,   price: 129,  label: "Başlangıç" },
+  { id: "pkg_1800",  coins: 1800,  price: 479,  label: "Temel" },
+  { id: "pkg_3500",  coins: 3500,  price: 883,  label: "Orta" },
+  { id: "pkg_7000",  coins: 7000,  price: 1675, label: "Büyük" },
+  { id: "pkg_15000", coins: 15000, price: 3528, label: "Süper" },
+  { id: "pkg_35000", coins: 35000, price: 8048, label: "Mega" },
+];
+
+router.get("/packages", async (_req, res) => {
+  res.json({ packages: adminCoinPackages });
+});
+
+router.put("/packages/:id", async (req, res) => {
+  const pkg = adminCoinPackages.find((p) => p.id === req.params.id);
+  if (!pkg) { res.status(404).json({ error: "Paket bulunamadı" }); return; }
+  const { coins, price, label } = req.body as { coins?: number; price?: number; label?: string };
+  if (coins && coins > 0) pkg.coins = coins;
+  if (price && price > 0) pkg.price = price;
+  if (label?.trim()) pkg.label = label.trim();
+  await auditLog(req, "package_update", undefined, { id: req.params.id, coins, price, label });
+  res.json({ ok: true, package: pkg });
+});
+
+// ─── System Health ────────────────────────────────────────────────────────────
+
+router.get("/health", async (_req, res) => {
+  const { getLiveUserIds } = await import("../lib/socketio");
+  const liveCount = getLiveUserIds().length;
+
+  let dbOk = false;
+  let dbLatencyMs = 0;
+  try {
+    const start = Date.now();
+    await db.execute(sql`SELECT 1`);
+    dbLatencyMs = Date.now() - start;
+    dbOk = true;
+  } catch { /* db down */ }
+
+  const mem = process.memoryUsage();
+  res.json({
+    status: dbOk ? "ok" : "degraded",
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    nodeVersion: process.version,
+    liveUsers: liveCount,
+    db: { ok: dbOk, latencyMs: dbLatencyMs },
+    memory: {
+      heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+      heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
+      rssMb: Math.round(mem.rss / 1024 / 1024),
+    },
+  });
+});
+
 export default router;
