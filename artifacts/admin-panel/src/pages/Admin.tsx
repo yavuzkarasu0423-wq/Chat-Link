@@ -161,7 +161,38 @@ interface HealthData {
   memory: { heapUsedMb: number; heapTotalMb: number; rssMb: number };
 }
 
-type Tab = "dashboard" | "reports" | "users" | "live" | "coins" | "bans" | "roles" | "audit" | "broadcast" | "matches" | "demographics" | "revenue" | "photos" | "gifts" | "retention" | "packages" | "health";
+interface BroadcasterRow {
+  userId: string;
+  fullName: string;
+  iban: string;
+  bankName: string | null;
+  coinRateKurus: number;
+  platformCutPercent: number;
+  isActive: boolean;
+  notes: string | null;
+  createdAt: string;
+  displayName: string | null;
+  photoUrl: string | null;
+  coinsThisWeek: number;
+  totalCoins: number;
+}
+
+interface EarningRow {
+  id: number;
+  broadcasterId: string;
+  weekStart: string;
+  weekEnd: string;
+  totalCoins: number;
+  totalTlKurus: number;
+  status: string;
+  paidAt: string | null;
+  paymentNote: string | null;
+  fullName: string;
+  iban: string;
+  bankName: string | null;
+}
+
+type Tab = "dashboard" | "reports" | "users" | "live" | "coins" | "bans" | "roles" | "audit" | "broadcast" | "matches" | "demographics" | "revenue" | "photos" | "gifts" | "retention" | "packages" | "health" | "broadcasters" | "earnings";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -584,6 +615,26 @@ export default function AdminPage() {
   const [healthData, setHealthData] = useState<HealthData | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
 
+  // Broadcasters
+  const [broadcasters, setBroadcasters] = useState<BroadcasterRow[]>([]);
+  const [bcMsg, setBcMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [bcFormUserId, setBcFormUserId] = useState("");
+  const [bcFormName, setBcFormName] = useState("");
+  const [bcFormIban, setBcFormIban] = useState("");
+  const [bcFormBank, setBcFormBank] = useState("");
+  const [bcFormRate, setBcFormRate] = useState("5");
+  const [bcFormCut, setBcFormCut] = useState("50");
+  const [bcFormNotes, setBcFormNotes] = useState("");
+  const [bcEditing, setBcEditing] = useState<string | null>(null);
+
+  // Earnings
+  const [earnings, setEarnings] = useState<EarningRow[]>([]);
+  const [earningsStatus, setEarningsStatus] = useState("pending");
+  const [earningsMsg, setEarningsMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [payNoteId, setPayNoteId] = useState<number | null>(null);
+  const [payNote, setPayNote] = useState("");
+  const [calcLoading, setCalcLoading] = useState(false);
+
   // ── Auth check ──────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -673,10 +724,15 @@ export default function AdminPage() {
       setHealthData(null);
       setHealthLoading(true);
       apiFetch("/api/admin/health").then((r) => r.json()).then((d: HealthData) => { setHealthData(d); setHealthLoading(false); });
+    } else if (tab === "broadcasters") {
+      apiFetch("/api/admin/broadcasters").then((r) => r.json()).then((d: { broadcasters: BroadcasterRow[] }) => setBroadcasters(d.broadcasters || []));
+    } else if (tab === "earnings") {
+      setEarnings([]);
+      apiFetch(`/api/admin/broadcasters/earnings?status=${earningsStatus}`).then((r) => r.json()).then((d: { earnings: EarningRow[] }) => setEarnings(d.earnings || []));
     }
     return;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, tab, dashDays, reportStatus, txOffset, auditOffset, revDays]);
+  }, [allowed, tab, dashDays, reportStatus, txOffset, auditOffset, revDays, earningsStatus]);
 
   // Pending tasks — load on dashboard or on auth
   useEffect(() => {
@@ -808,6 +864,8 @@ export default function AdminPage() {
     { key: "retention", label: "Kullanıcı Tutma", icon: "📈" },
     { key: "packages", label: "Coin Paketleri", icon: "📦" },
     { key: "health", label: "Sistem Sağlığı", icon: "🩺" },
+    { key: "broadcasters", label: "Yayıncılar", icon: "🎙️" },
+    { key: "earnings", label: "Haftalık Ödemeler", icon: "💸" },
   ];
 
   return (
@@ -908,7 +966,7 @@ export default function AdminPage() {
                         <span className="text-lg">{c.icon}</span>
                       </div>
                       <p className={`text-2xl font-black ${c.value > 0 && (c.color === "red") ? "text-red-400" : c.value > 0 && c.color === "emerald" ? "text-emerald-400" : c.value > 0 && c.color === "orange" ? "text-orange-400" : c.value > 0 && c.color === "purple" ? "text-purple-400" : "text-white"}`}>
-                        {c.value.toLocaleString("tr-TR")}
+                        {(c.value ?? 0).toLocaleString("tr-TR")}
                       </p>
                       <p className="text-[10px] text-gray-600 mt-1 group-hover:text-gray-400 transition-colors">Detay →</p>
                     </button>
@@ -1944,6 +2002,248 @@ export default function AdminPage() {
                 </div>
               </>
             )}
+          </div>
+        )}
+
+        {/* ── Yayıncılar Tab ── */}
+        {tab === "broadcasters" && (
+          <div className="space-y-6 max-w-5xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">🎙️ Yayıncı Yönetimi</h2>
+            </div>
+
+            {bcMsg && (
+              <div className={`px-4 py-3 rounded-lg text-sm font-medium ${bcMsg.ok ? "bg-emerald-900/40 text-emerald-300 border border-emerald-700/40" : "bg-red-900/40 text-red-300 border border-red-700/40"}`}>
+                {bcMsg.text}
+              </div>
+            )}
+
+            {/* Yeni Yayıncı Formu */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">
+                {bcEditing ? "✏️ Yayıncı Düzenle" : "➕ Yeni Yayıncı Ekle"}
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {!bcEditing && (
+                  <input value={bcFormUserId} onChange={(e) => setBcFormUserId(e.target.value)} placeholder="User ID" className="col-span-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                )}
+                <input value={bcFormName} onChange={(e) => setBcFormName(e.target.value)} placeholder="Ad Soyad" className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input value={bcFormIban} onChange={(e) => setBcFormIban(e.target.value)} placeholder="TR... IBAN" className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input value={bcFormBank} onChange={(e) => setBcFormBank(e.target.value)} placeholder="Banka Adı (opsiyonel)" className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <div className="flex gap-2">
+                  <input value={bcFormRate} onChange={(e) => setBcFormRate(e.target.value)} placeholder="Kuruş/Coin (5)" type="number" className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  <input value={bcFormCut} onChange={(e) => setBcFormCut(e.target.value)} placeholder="Platform kesinti %" type="number" className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <input value={bcFormNotes} onChange={(e) => setBcFormNotes(e.target.value)} placeholder="Notlar (opsiyonel)" className="col-span-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={async () => {
+                    const body = bcEditing
+                      ? { fullName: bcFormName, iban: bcFormIban, bankName: bcFormBank, coinRateKurus: Number(bcFormRate), platformCutPercent: Number(bcFormCut), notes: bcFormNotes }
+                      : { userId: bcFormUserId, fullName: bcFormName, iban: bcFormIban, bankName: bcFormBank, coinRateKurus: Number(bcFormRate), platformCutPercent: Number(bcFormCut), notes: bcFormNotes };
+                    const url = bcEditing ? `/api/admin/broadcasters/${bcEditing}` : "/api/admin/broadcasters";
+                    const method = bcEditing ? "PATCH" : "POST";
+                    const r = await apiFetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+                    const d = await r.json() as { ok?: boolean; error?: string };
+                    if (d.ok) {
+                      setBcMsg({ ok: true, text: bcEditing ? "Yayıncı güncellendi." : "Yayıncı eklendi." });
+                      setBcEditing(null); setBcFormUserId(""); setBcFormName(""); setBcFormIban(""); setBcFormBank(""); setBcFormRate("5"); setBcFormCut("50"); setBcFormNotes("");
+                      apiFetch("/api/admin/broadcasters").then((r) => r.json()).then((d: { broadcasters: BroadcasterRow[] }) => setBroadcasters(d.broadcasters || []));
+                    } else {
+                      setBcMsg({ ok: false, text: d.error ?? "Hata" });
+                    }
+                  }}
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                  {bcEditing ? "Güncelle" : "Yayıncı Ekle"}
+                </button>
+                {bcEditing && (
+                  <button onClick={() => { setBcEditing(null); setBcFormName(""); setBcFormIban(""); setBcFormBank(""); setBcFormRate("5"); setBcFormCut("50"); setBcFormNotes(""); }} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors">İptal</button>
+                )}
+              </div>
+            </div>
+
+            {/* Yayıncı Listesi */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-800/50">
+                  <tr>
+                    {["Yayıncı", "IBAN / Banka", "Bu Hafta", "Toplam", "Oran", "Durum", "İşlem"].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {broadcasters.length === 0 && (
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500 text-sm">Henüz yayıncı yok</td></tr>
+                  )}
+                  {broadcasters.map((bc) => {
+                    const net = bc.coinRateKurus * (1 - bc.platformCutPercent / 100);
+                    return (
+                      <tr key={bc.userId} className="hover:bg-gray-800/30">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {bc.photoUrl && <img src={bc.photoUrl} className="w-7 h-7 rounded-full object-cover" />}
+                            <div>
+                              <p className="font-medium text-white text-xs">{bc.fullName}</p>
+                              <p className="text-[10px] text-gray-500">{bc.displayName ?? bc.userId}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-xs text-white font-mono">{bc.iban.slice(0, 10)}…</p>
+                          <p className="text-[10px] text-gray-500">{bc.bankName ?? "—"}</p>
+                        </td>
+                        <td className="px-4 py-3 text-xs font-semibold text-amber-400">{bc.coinsThisWeek} 🪙</td>
+                        <td className="px-4 py-3 text-xs text-gray-300">{bc.totalCoins} 🪙</td>
+                        <td className="px-4 py-3 text-[10px] text-gray-400">{net.toFixed(1)} kr/coin<br />%{bc.platformCutPercent} kesinti</td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={async () => {
+                              await apiFetch(`/api/admin/broadcasters/${bc.userId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive: !bc.isActive }) });
+                              apiFetch("/api/admin/broadcasters").then((r) => r.json()).then((d: { broadcasters: BroadcasterRow[] }) => setBroadcasters(d.broadcasters || []));
+                            }}
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${bc.isActive ? "bg-emerald-900/60 text-emerald-300" : "bg-red-900/60 text-red-300"}`}
+                          >
+                            {bc.isActive ? "Aktif" : "Pasif"}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => {
+                              setBcEditing(bc.userId);
+                              setBcFormName(bc.fullName);
+                              setBcFormIban(bc.iban);
+                              setBcFormBank(bc.bankName ?? "");
+                              setBcFormRate(String(bc.coinRateKurus));
+                              setBcFormCut(String(bc.platformCutPercent));
+                              setBcFormNotes(bc.notes ?? "");
+                            }}
+                            className="text-xs text-indigo-400 hover:text-indigo-300"
+                          >
+                            Düzenle
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Haftalık Ödemeler Tab ── */}
+        {tab === "earnings" && (
+          <div className="space-y-6 max-w-5xl">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h2 className="text-xl font-bold text-white">💸 Haftalık Yayıncı Ödemeleri</h2>
+              <button
+                disabled={calcLoading}
+                onClick={async () => {
+                  setCalcLoading(true);
+                  setEarningsMsg(null);
+                  const r = await apiFetch("/api/admin/broadcasters/earnings/calculate", { method: "POST", headers: { "Content-Type": "application/json" } });
+                  const d = await r.json() as { ok?: boolean; created?: number; weekStart?: string; error?: string };
+                  setCalcLoading(false);
+                  if (d.ok) {
+                    setEarningsMsg({ ok: true, text: `Hesaplandı — ${d.created} yeni kayıt (Hafta: ${d.weekStart ? new Date(d.weekStart).toLocaleDateString("tr-TR") : ""})` });
+                    apiFetch(`/api/admin/broadcasters/earnings?status=${earningsStatus}`).then((r) => r.json()).then((d: { earnings: EarningRow[] }) => setEarnings(d.earnings || []));
+                  } else {
+                    setEarningsMsg({ ok: false, text: d.error ?? "Hata" });
+                  }
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
+              >
+                {calcLoading ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : "🔄"}
+                Haftalık Kazanç Hesapla
+              </button>
+            </div>
+
+            {earningsMsg && (
+              <div className={`px-4 py-3 rounded-lg text-sm font-medium ${earningsMsg.ok ? "bg-emerald-900/40 text-emerald-300 border border-emerald-700/40" : "bg-red-900/40 text-red-300 border border-red-700/40"}`}>
+                {earningsMsg.text}
+              </div>
+            )}
+
+            <div className="flex gap-2 flex-wrap">
+              {["pending", "paid", "cancelled"].map((s) => (
+                <button key={s} onClick={() => setEarningsStatus(s)} className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${earningsStatus === s ? "bg-indigo-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}>
+                  {s === "pending" ? "⏳ Bekleyen" : s === "paid" ? "✅ Ödendi" : "❌ İptal"}
+                </button>
+              ))}
+            </div>
+
+            {payNoteId !== null && (
+              <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 flex gap-3 items-center">
+                <input value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="Ödeme notu (opsiyonel)" className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <button
+                  onClick={async () => {
+                    await apiFetch(`/api/admin/broadcasters/earnings/${payNoteId}/pay`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: payNote }) });
+                    setPayNoteId(null); setPayNote("");
+                    setEarningsMsg({ ok: true, text: "Ödeme onaylandı." });
+                    apiFetch(`/api/admin/broadcasters/earnings?status=${earningsStatus}`).then((r) => r.json()).then((d: { earnings: EarningRow[] }) => setEarnings(d.earnings || []));
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg transition-colors"
+                >Onayla</button>
+                <button onClick={() => { setPayNoteId(null); setPayNote(""); }} className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors">İptal</button>
+              </div>
+            )}
+
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-800/50">
+                  <tr>
+                    {["Yayıncı", "Hafta", "Coin", "Tutar (TL)", "Durum", "İşlemler"].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {earnings.length === 0 && (
+                    <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500 text-sm">Kayıt bulunamadı</td></tr>
+                  )}
+                  {earnings.map((e) => (
+                    <tr key={e.id} className="hover:bg-gray-800/30">
+                      <td className="px-4 py-3">
+                        <p className="text-sm font-medium text-white">{e.fullName}</p>
+                        <p className="text-[10px] text-gray-500 font-mono">{e.iban.slice(0, 10)}… {e.bankName ?? ""}</p>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-300">
+                        {new Date(e.weekStart).toLocaleDateString("tr-TR")} — {new Date(e.weekEnd).toLocaleDateString("tr-TR")}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-semibold text-amber-400">{e.totalCoins} 🪙</td>
+                      <td className="px-4 py-3 text-sm font-bold text-white">
+                        {(e.totalTlKurus / 100).toFixed(2)} ₺
+                        {e.paymentNote && <p className="text-[10px] text-gray-500 font-normal">{e.paymentNote}</p>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${e.status === "paid" ? "bg-emerald-900/60 text-emerald-300" : e.status === "cancelled" ? "bg-red-900/60 text-red-300" : "bg-amber-900/60 text-amber-300"}`}>
+                          {e.status === "paid" ? "✅ Ödendi" : e.status === "cancelled" ? "❌ İptal" : "⏳ Bekliyor"}
+                        </span>
+                        {e.paidAt && <p className="text-[10px] text-gray-500 mt-0.5">{new Date(e.paidAt).toLocaleDateString("tr-TR")}</p>}
+                      </td>
+                      <td className="px-4 py-3">
+                        {e.status === "pending" && (
+                          <div className="flex gap-2">
+                            <button onClick={() => { setPayNoteId(e.id); setPayNote(""); }} className="text-xs px-2.5 py-1 bg-emerald-700/40 hover:bg-emerald-700/60 text-emerald-300 rounded-lg transition-colors">Öde</button>
+                            <button
+                              onClick={async () => {
+                                await apiFetch(`/api/admin/broadcasters/earnings/${e.id}/cancel`, { method: "POST", headers: { "Content-Type": "application/json" } });
+                                setEarningsMsg({ ok: true, text: "İptal edildi." });
+                                apiFetch(`/api/admin/broadcasters/earnings?status=${earningsStatus}`).then((r) => r.json()).then((d: { earnings: EarningRow[] }) => setEarnings(d.earnings || []));
+                              }}
+                              className="text-xs px-2.5 py-1 bg-red-700/40 hover:bg-red-700/60 text-red-300 rounded-lg transition-colors"
+                            >İptal</button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

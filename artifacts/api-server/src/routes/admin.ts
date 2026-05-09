@@ -11,6 +11,8 @@ import {
   coinTransactionsTable,
   matchHistoryTable,
   adminAuditLogsTable,
+  broadcasterProfilesTable,
+  broadcasterEarningsTable,
 } from "@workspace/db/schema";
 import { eq, desc, and, sql, ilike, or } from "drizzle-orm";
 import { logger } from "../lib/logger";
@@ -876,6 +878,208 @@ router.get("/health", async (_req, res) => {
       rssMb: Math.round(mem.rss / 1024 / 1024),
     },
   });
+});
+
+// ─── Broadcaster Admin Routes ────────────────────────────────────────────────
+
+// GET /api/admin/broadcasters — tüm yayıncılar
+router.get("/broadcasters", async (_req, res) => {
+  const rows = await db.execute(sql`
+    SELECT
+      bp.user_id          AS "userId",
+      bp.full_name        AS "fullName",
+      bp.iban,
+      bp.bank_name        AS "bankName",
+      bp.coin_rate_kurus  AS "coinRateKurus",
+      bp.platform_cut_percent AS "platformCutPercent",
+      bp.is_active        AS "isActive",
+      bp.notes,
+      bp.created_at       AS "createdAt",
+      p.display_name      AS "displayName",
+      p.photo_url         AS "photoUrl",
+      COALESCE((
+        SELECT SUM(ct.amount) FROM coin_transactions ct
+        WHERE ct.user_id = bp.user_id
+          AND ct.amount > 0
+          AND (ct.reason LIKE '%hediye%' OR ct.reason LIKE '%gift%' OR ct.reason LIKE '%🎁%')
+          AND ct.created_at >= date_trunc('week', NOW())
+      ), 0)::int           AS "coinsThisWeek",
+      COALESCE((
+        SELECT SUM(ct.amount) FROM coin_transactions ct
+        WHERE ct.user_id = bp.user_id
+          AND ct.amount > 0
+          AND (ct.reason LIKE '%hediye%' OR ct.reason LIKE '%gift%' OR ct.reason LIKE '%🎁%')
+      ), 0)::int           AS "totalCoins"
+    FROM broadcaster_profiles bp
+    LEFT JOIN profiles p ON p.user_id = bp.user_id
+    ORDER BY bp.created_at DESC
+  `);
+  res.json({ broadcasters: rows.rows });
+});
+
+// POST /api/admin/broadcasters — yeni yayıncı ekle
+router.post("/broadcasters", async (req, res) => {
+  const { userId, fullName, iban, bankName, coinRateKurus, platformCutPercent, notes } =
+    req.body as { userId: string; fullName: string; iban: string; bankName?: string; coinRateKurus?: number; platformCutPercent?: number; notes?: string };
+
+  if (!userId?.trim() || !fullName?.trim() || !iban?.trim()) {
+    res.status(400).json({ error: "userId, fullName, iban zorunlu" }); return;
+  }
+
+  const ibanClean = iban.replace(/\s/g, "").toUpperCase();
+
+  await db.insert(broadcasterProfilesTable).values({
+    userId: userId.trim(),
+    fullName: fullName.trim(),
+    iban: ibanClean,
+    bankName: bankName?.trim() ?? null,
+    coinRateKurus: coinRateKurus ?? 5,
+    platformCutPercent: platformCutPercent ?? 50,
+    notes: notes?.trim() ?? null,
+  }).onConflictDoUpdate({
+    target: broadcasterProfilesTable.userId,
+    set: {
+      fullName: fullName.trim(),
+      iban: ibanClean,
+      bankName: bankName?.trim() ?? null,
+      coinRateKurus: coinRateKurus ?? 5,
+      platformCutPercent: platformCutPercent ?? 50,
+      notes: notes?.trim() ?? null,
+      updatedAt: new Date(),
+    },
+  });
+
+  // Eğer broadcaster rolü yoksa ekle
+  const [existing] = await db.select().from(userRolesTable)
+    .where(and(eq(userRolesTable.userId, userId.trim()), eq(userRolesTable.role, "broadcaster")));
+  if (!existing) {
+    await db.insert(userRolesTable).values({ userId: userId.trim(), role: "broadcaster" });
+  }
+
+  await auditLog(req, "broadcaster_add", userId.trim(), { fullName, iban: ibanClean });
+  res.json({ ok: true });
+});
+
+// PATCH /api/admin/broadcasters/:userId — güncelle
+router.patch("/broadcasters/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const { fullName, iban, bankName, coinRateKurus, platformCutPercent, isActive, notes } =
+    req.body as { fullName?: string; iban?: string; bankName?: string; coinRateKurus?: number; platformCutPercent?: number; isActive?: boolean; notes?: string };
+
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (fullName !== undefined) updates.fullName = fullName.trim();
+  if (iban !== undefined) updates.iban = iban.replace(/\s/g, "").toUpperCase();
+  if (bankName !== undefined) updates.bankName = bankName.trim();
+  if (coinRateKurus !== undefined) updates.coinRateKurus = coinRateKurus;
+  if (platformCutPercent !== undefined) updates.platformCutPercent = platformCutPercent;
+  if (isActive !== undefined) updates.isActive = isActive;
+  if (notes !== undefined) updates.notes = notes.trim();
+
+  await db.update(broadcasterProfilesTable).set(updates).where(eq(broadcasterProfilesTable.userId, userId));
+  await auditLog(req, "broadcaster_update", userId, updates);
+  res.json({ ok: true });
+});
+
+// POST /api/admin/broadcasters/earnings/calculate — haftalık kazanç hesapla
+router.post("/broadcasters/earnings/calculate", async (req, res) => {
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay()); // Pazar
+  weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  const broadcasters = await db.select().from(broadcasterProfilesTable).where(eq(broadcasterProfilesTable.isActive, true));
+
+  let created = 0;
+  for (const bc of broadcasters) {
+    const coinResult = await db.execute(sql`
+      SELECT COALESCE(SUM(amount), 0)::int AS coins
+      FROM coin_transactions
+      WHERE user_id = ${bc.userId}
+        AND amount > 0
+        AND (reason LIKE '%hediye%' OR reason LIKE '%gift%' OR reason LIKE '%🎁%')
+        AND created_at BETWEEN ${weekStart.toISOString()} AND ${weekEnd.toISOString()}
+    `);
+    const coins = (coinResult.rows[0] as { coins: number })?.coins ?? 0;
+    if (coins === 0) continue;
+
+    const netRate = bc.coinRateKurus * (1 - bc.platformCutPercent / 100);
+    const totalTlKurus = Math.floor(coins * netRate);
+
+    // Eğer bu hafta için zaten kayıt varsa atla
+    const [existing] = await db.select().from(broadcasterEarningsTable)
+      .where(and(
+        eq(broadcasterEarningsTable.broadcasterId, bc.userId),
+        eq(broadcasterEarningsTable.weekStart, weekStart),
+      )).limit(1);
+
+    if (!existing) {
+      await db.insert(broadcasterEarningsTable).values({
+        broadcasterId: bc.userId,
+        weekStart,
+        weekEnd,
+        totalCoins: coins,
+        totalTlKurus,
+        status: "pending",
+      });
+      created++;
+    }
+  }
+
+  await auditLog(req, "earnings_calculate", undefined, { week: weekStart.toISOString(), created });
+  res.json({ ok: true, created, weekStart: weekStart.toISOString() });
+});
+
+// GET /api/admin/broadcasters/earnings — tüm kazanç kayıtları
+router.get("/broadcasters/earnings", async (req, res) => {
+  const status = typeof req.query.status === "string" ? req.query.status : null;
+
+  const rows = await db.execute(sql`
+    SELECT
+      be.id,
+      be.broadcaster_id   AS "broadcasterId",
+      be.week_start       AS "weekStart",
+      be.week_end         AS "weekEnd",
+      be.total_coins      AS "totalCoins",
+      be.total_tl_kurus   AS "totalTlKurus",
+      be.status,
+      be.paid_at          AS "paidAt",
+      be.payment_note     AS "paymentNote",
+      bp.full_name        AS "fullName",
+      bp.iban,
+      bp.bank_name        AS "bankName"
+    FROM broadcaster_earnings be
+    JOIN broadcaster_profiles bp ON bp.user_id = be.broadcaster_id
+    ${status ? sql`WHERE be.status = ${status}` : sql``}
+    ORDER BY be.week_start DESC, be.total_tl_kurus DESC
+    LIMIT 200
+  `);
+  res.json({ earnings: rows.rows });
+});
+
+// POST /api/admin/broadcasters/earnings/:id/pay — ödeme onayla
+router.post("/broadcasters/earnings/:id/pay", async (req, res) => {
+  const id = Number(req.params.id);
+  const { note } = req.body as { note?: string };
+
+  await db.update(broadcasterEarningsTable)
+    .set({ status: "paid", paidAt: new Date(), paymentNote: note?.trim() ?? null, updatedAt: new Date() })
+    .where(eq(broadcasterEarningsTable.id, id));
+
+  await auditLog(req, "earnings_pay", undefined, { earningsId: id, note });
+  res.json({ ok: true });
+});
+
+// POST /api/admin/broadcasters/earnings/:id/cancel — iptal et
+router.post("/broadcasters/earnings/:id/cancel", async (req, res) => {
+  const id = Number(req.params.id);
+  await db.update(broadcasterEarningsTable)
+    .set({ status: "cancelled", updatedAt: new Date() })
+    .where(eq(broadcasterEarningsTable.id, id));
+  await auditLog(req, "earnings_cancel", undefined, { earningsId: id });
+  res.json({ ok: true });
 });
 
 export default router;
