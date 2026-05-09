@@ -2,10 +2,12 @@ import { useApi } from "@/hooks/useApi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { Feather } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,7 +15,6 @@ import {
   Text,
   TextInput,
   View,
-  Image,
   ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -81,6 +82,60 @@ export default function DMScreen() {
     }
   };
 
+  const handleMore = () => {
+    const partnerName = thread?.displayName ?? "Kullanıcı";
+    Alert.alert(partnerName, "Ne yapmak istersin?", [
+      {
+        text: "Şikayet Et",
+        onPress: () => {
+          Alert.alert("Şikayet", "Şikayet sebebini seç:", [
+            { text: "Spam", onPress: () => reportUser("spam") },
+            { text: "Uygunsuz Davranış", onPress: () => reportUser("inappropriate") },
+            { text: "Taciz", onPress: () => reportUser("harassment") },
+            { text: "İptal", style: "cancel" },
+          ]);
+        },
+      },
+      {
+        text: "Engelle",
+        style: "destructive",
+        onPress: () => {
+          Alert.alert("Engelle", `${partnerName} kullanıcısını engellemek istiyor musun?`, [
+            { text: "İptal", style: "cancel" },
+            { text: "Engelle", style: "destructive", onPress: () => blockUser() },
+          ]);
+        },
+      },
+      { text: "İptal", style: "cancel" },
+    ]);
+  };
+
+  const reportUser = async (reason: string) => {
+    try {
+      await apiFetch("/api/reports", {
+        method: "POST",
+        body: JSON.stringify({ reportedUserId: userId, reason }),
+      });
+      Alert.alert("Teşekkürler", "Şikayetiniz alındı. İnceleyeceğiz.");
+    } catch {
+      Alert.alert("Hata", "Şikayet gönderilemedi.");
+    }
+  };
+
+  const blockUser = async () => {
+    try {
+      await apiFetch("/api/bans", {
+        method: "POST",
+        body: JSON.stringify({ blockedUserId: userId }),
+      });
+      Alert.alert("Engellendi", "Kullanıcı engellendi.", [
+        { text: "Tamam", onPress: () => router.back() },
+      ]);
+    } catch {
+      Alert.alert("Hata", "Kullanıcı engellenemedi.");
+    }
+  };
+
   const renderMsg = ({ item }: { item: Message }) => {
     const isMe = item.senderId === user?.id;
     return (
@@ -95,7 +150,9 @@ export default function DMScreen() {
     );
   };
 
+  const topPad = Platform.OS === "web" ? 67 : insets.top;
   const botPad = Platform.OS === "web" ? 34 : insets.bottom;
+  const partnerInitial = (thread?.displayName ?? "?").charAt(0).toUpperCase();
 
   if (loading) {
     return (
@@ -109,8 +166,29 @@ export default function DMScreen() {
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
     >
+      <View style={[styles.header, { paddingTop: topPad + 8, borderBottomColor: colors.border }]}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </Pressable>
+        <View style={styles.headerCenter}>
+          {thread?.photoUrl ? (
+            <Image source={{ uri: thread.photoUrl }} style={styles.headerAvatar} />
+          ) : (
+            <View style={[styles.headerAvatarPlaceholder, { backgroundColor: colors.primary }]}>
+              <Text style={styles.headerAvatarInitial}>{partnerInitial}</Text>
+            </View>
+          )}
+          <Text style={[styles.headerName, { color: colors.foreground }]} numberOfLines={1}>
+            {thread?.displayName ?? "Mesaj"}
+          </Text>
+        </View>
+        <Pressable onPress={handleMore} style={styles.moreBtn}>
+          <Feather name="more-vertical" size={22} color={colors.foreground} />
+        </Pressable>
+      </View>
+
       <FlatList
         ref={flatRef}
         data={[...messages].reverse()}
@@ -160,6 +238,21 @@ export default function DMScreen() {
 
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    backgroundColor: "#fff",
+  },
+  backBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  moreBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  headerCenter: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 4 },
+  headerAvatar: { width: 36, height: 36, borderRadius: 18 },
+  headerAvatarPlaceholder: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  headerAvatarInitial: { fontSize: 15, fontWeight: "700", color: "#fff" },
+  headerName: { fontSize: 16, fontWeight: "700", flex: 1 },
   msgRow: { flexDirection: "row", marginBottom: 4 },
   msgRowMe: { justifyContent: "flex-end" },
   bubble: { maxWidth: "75%", borderRadius: 16, padding: 12, gap: 4 },

@@ -2,18 +2,72 @@ import { Redirect } from "expo-router";
 import { BlurView } from "expo-blur";
 import { Tabs } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import React from "react";
-import { Platform, StyleSheet, View, ActivityIndicator } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Platform, StyleSheet, View, ActivityIndicator, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useApi } from "@/hooks/useApi";
 import { useColors } from "@/hooks/useColors";
+
+function CountBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <View style={badgeStyles.badge}>
+      <Text style={badgeStyles.text}>{count > 9 ? "9+" : count}</Text>
+    </View>
+  );
+}
+
+const badgeStyles = StyleSheet.create({
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -8,
+    backgroundColor: "#ef4444",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  text: { fontSize: 10, fontWeight: "700", color: "#fff" },
+});
 
 export default function TabLayout() {
   const { user, isLoading } = useAuth();
+  const { apiFetch } = useApi();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const isIOS = Platform.OS === "ios";
+  const [unreadDMs, setUnreadDMs] = useState(0);
+  const [pendingFriends, setPendingFriends] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchBadges = async () => {
+      try {
+        const [dmRes, friendRes] = await Promise.all([
+          apiFetch("/api/dms"),
+          apiFetch("/api/friends"),
+        ]);
+        if (dmRes.ok) {
+          const d = (await dmRes.json()) as { threads: { unread?: number }[] };
+          const total = (d.threads ?? []).reduce((sum, t) => sum + (t.unread ?? 0), 0);
+          setUnreadDMs(total);
+        }
+        if (friendRes.ok) {
+          const d = (await friendRes.json()) as { friends: { status: string; direction: string }[] };
+          const pending = (d.friends ?? []).filter((f) => f.status === "pending" && f.direction === "incoming").length;
+          setPendingFriends(pending);
+        }
+      } catch {}
+    };
+    fetchBadges();
+    const t = setInterval(fetchBadges, 15000);
+    return () => clearInterval(t);
+  }, [user, apiFetch]);
 
   if (isLoading) {
     return (
@@ -59,7 +113,24 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: "Mesajlar",
-          tabBarIcon: ({ color, size }) => <Feather name="message-circle" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => (
+            <View>
+              <Feather name="message-circle" size={size} color={color} />
+              <CountBadge count={unreadDMs} />
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="friends"
+        options={{
+          title: "Arkadaşlar",
+          tabBarIcon: ({ color, size }) => (
+            <View>
+              <Feather name="users" size={size} color={color} />
+              <CountBadge count={pendingFriends} />
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
