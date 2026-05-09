@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 interface ProfileSetupProps {
   defaultName: string;
@@ -34,11 +34,35 @@ export default function ProfileSetup({
   const [interests, setInterests] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(defaultPhoto);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleInterest = (i: string) => {
     setInterests((prev) =>
       prev.includes(i) ? prev.filter((x) => x !== i) : prev.length >= 8 ? prev : [...prev, i],
     );
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 1.5 * 1024 * 1024) {
+      setError("Fotoğraf 1.5 MB'tan küçük olmalı.");
+      return;
+    }
+    setPhotoUploading(true);
+    setError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotoUrl(reader.result as string);
+      setPhotoUploading(false);
+    };
+    reader.onerror = () => {
+      setError("Fotoğraf okunamadı.");
+      setPhotoUploading(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   const submit = async (e: FormEvent) => {
@@ -70,7 +94,7 @@ export default function ProfileSetup({
           country,
           bio: bio.trim() || null,
           interests,
-          photoUrl: defaultPhoto,
+          photoUrl,
         }),
       });
       if (!res.ok) {
@@ -92,17 +116,36 @@ export default function ProfileSetup({
         className="w-full max-w-md bg-white rounded-3xl shadow-xl p-6 sm:p-8 space-y-5"
       >
         <div className="text-center">
-          {defaultPhoto ? (
-            <img
-              src={defaultPhoto}
-              alt=""
-              className="w-20 h-20 rounded-full mx-auto mb-3 object-cover ring-4 ring-emerald-100"
+          <div className="relative inline-block mb-3">
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt=""
+                className="w-20 h-20 rounded-full object-cover ring-4 ring-emerald-100"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-emerald-500 text-white text-3xl font-bold flex items-center justify-center">
+                {(displayName || "?").charAt(0).toUpperCase()}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={photoUploading}
+              className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white border-2 border-emerald-400 flex items-center justify-center text-sm shadow hover:bg-emerald-50 transition-colors"
+              title="Fotoğraf yükle"
+            >
+              {photoUploading ? "⏳" : "📷"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoChange}
             />
-          ) : (
-            <div className="w-20 h-20 rounded-full mx-auto mb-3 bg-emerald-500 text-white text-3xl font-bold flex items-center justify-center">
-              {(defaultName || "?").charAt(0).toUpperCase()}
-            </div>
-          )}
+          </div>
+          <p className="text-xs text-gray-400 mb-1">Profil fotoğrafı yüklemek için 📷 simgesine tıkla</p>
           <h1 className="text-2xl font-black text-gray-900">Profilini Oluştur</h1>
           <p className="text-sm text-gray-500 mt-1">
             Karşı tarafın seni nasıl tanıyacağını belirle.
@@ -208,7 +251,7 @@ export default function ProfileSetup({
 
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || photoUploading}
           className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
         >
           {saving ? "Kaydediliyor..." : "Devam et"}
