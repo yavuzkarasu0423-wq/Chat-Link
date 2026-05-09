@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../lib/auth";
 import { db } from "@workspace/db";
 import { coinTransactionsTable } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc, or, like } from "drizzle-orm";
 
 const router = Router();
 
@@ -10,7 +10,16 @@ router.get("/history", requireAuth, async (req, res) => {
   const transactions = await db
     .select()
     .from(coinTransactionsTable)
-    .where(eq(coinTransactionsTable.userId, req.userId!))
+    .where(
+      and(
+        eq(coinTransactionsTable.userId, req.userId!),
+        or(
+          like(coinTransactionsTable.reason, "%hediye%"),
+          like(coinTransactionsTable.reason, "%gift%"),
+          like(coinTransactionsTable.reason, "%🎁%"),
+        ),
+      ),
+    )
     .orderBy(desc(coinTransactionsTable.createdAt))
     .limit(100);
   res.json({ transactions });

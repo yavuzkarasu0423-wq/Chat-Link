@@ -63,7 +63,7 @@ export default function MessagesScreen() {
 
     return (
       <Pressable
-        onPress={() => router.push(`/dm/${item.userId}` as `/${string}`)}
+        onPress={() => router.push({ pathname: "/dm/[userId]", params: { userId: item.userId } })}
         style={({ pressed }) => [styles.thread, pressed && { opacity: 0.7, backgroundColor: "#f9fafb" }]}
       >
         <View style={styles.avatarWrap}>

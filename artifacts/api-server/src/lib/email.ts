@@ -9,12 +9,16 @@ if (!resend) {
   logger.warn("RESEND_API_KEY not set — emails disabled");
 }
 
-// Resend ücretsiz planda sadece onboarding@resend.dev'den gönderilebilir.
-// Kendi domain'ini doğruladıktan sonra FROM adresini değiştir.
-const FROM = "1v1 Chat <onboarding@resend.dev>";
+const FROM = process.env.EMAIL_FROM ?? "1v1 Chat <onboarding@resend.dev>";
+
+function getAppUrl(): string {
+  const domains = process.env.REPLIT_DOMAINS?.split(",") ?? [];
+  return domains[0] ? `https://${domains[0]}` : "https://1v1chat.me";
+}
 
 export async function sendWelcomeEmail(to: string, displayName: string) {
   if (!resend || !to) return;
+  const url = getAppUrl();
   try {
     await resend.emails.send({
       from: FROM,
@@ -37,7 +41,7 @@ export async function sendWelcomeEmail(to: string, displayName: string) {
               <li>🎁 Hediye gönder, altın kazan</li>
               <li>👥 Arkadaş edinip DM at</li>
             </ul>
-            <a href="https://1v1chat.replit.app" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;padding:14px 28px;border-radius:50px;font-weight:700;font-size:15px">
+            <a href="${url}" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;padding:14px 28px;border-radius:50px;font-weight:700;font-size:15px">
               Hemen Başla →
             </a>
           </div>
@@ -59,6 +63,7 @@ export async function sendDmNotificationEmail(
   preview: string,
 ) {
   if (!resend || !to) return;
+  const url = getAppUrl();
   try {
     await resend.emails.send({
       from: FROM,
@@ -74,7 +79,7 @@ export async function sendDmNotificationEmail(
             <div style="background:#f3f4f6;border-radius:12px;padding:16px;color:#374151;font-style:italic;margin:0 0 24px">
               "${preview.slice(0, 120)}${preview.length > 120 ? "…" : ""}"
             </div>
-            <a href="https://1v1chat.replit.app" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;padding:12px 24px;border-radius:50px;font-weight:700">
+            <a href="${url}" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;padding:12px 24px;border-radius:50px;font-weight:700">
               Mesajı Gör →
             </a>
           </div>
@@ -92,6 +97,7 @@ export async function sendFriendRequestEmail(
   fromName: string,
 ) {
   if (!resend || !to) return;
+  const url = getAppUrl();
   try {
     await resend.emails.send({
       from: FROM,
@@ -106,7 +112,7 @@ export async function sendFriendRequestEmail(
             <p style="color:#111827;font-size:16px;margin:0 0 20px">
               <strong>${fromName}</strong> sana arkadaşlık isteği gönderdi!
             </p>
-            <a href="https://1v1chat.replit.app" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;padding:12px 24px;border-radius:50px;font-weight:700">
+            <a href="${url}" style="display:inline-block;background:#10b981;color:#fff;text-decoration:none;padding:12px 24px;border-radius:50px;font-weight:700">
               İsteği Kabul Et →
             </a>
           </div>

@@ -35,7 +35,7 @@ function playDmSound() {
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
-type Modal = "none" | "login" | "safety" | "coins" | "coin-history" | "filters" | "terms" | "privacy" | "about" | "contact" | "community";
+type Modal = "none" | "login" | "safety" | "coins" | "coin-history" | "filters" | "terms" | "privacy" | "about" | "contact" | "community" | "download";
 type Tab = "home" | "kesfet" | "match" | "messages";
 
 export interface LandingProps {
@@ -1414,9 +1414,25 @@ function ContactModal({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState("");
   const [sent, setSent] = useState(false);
-  const handleSend = () => {
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const handleSend = async () => {
     if (!name.trim() || !email.trim() || !msg.trim()) return;
-    setSent(true);
+    setSending(true);
+    setSendError(null);
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), message: msg.trim() }),
+      });
+      if (!res.ok) throw new Error("Gönderilemedi");
+      setSent(true);
+    } catch {
+      setSendError("Mesaj gönderilemedi. Lütfen tekrar deneyin.");
+    } finally {
+      setSending(false);
+    }
   };
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] px-4 animate-fade-in">
@@ -1460,15 +1476,53 @@ function ContactModal({ onClose }: { onClose: () => void }) {
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-gray-400 resize-none"
               />
             </div>
+            {sendError && <p className="text-xs text-red-500 mt-1">{sendError}</p>}
             <button
               onClick={handleSend}
-              disabled={!name.trim() || !email.trim() || !msg.trim()}
+              disabled={!name.trim() || !email.trim() || !msg.trim() || sending}
               className="mt-4 w-full py-3 rounded-full bg-emerald-500 text-white font-semibold text-sm hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              Gönder
+              {sending ? "Gönderiliyor..." : "Gönder"}
             </button>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// İndir Modal
+// ─────────────────────────────────────────────
+function DownloadModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] px-4 animate-fade-in">
+      <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl text-center">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-bold text-gray-900">Uygulamayı İndir</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 font-bold">✕</button>
+        </div>
+        <div className="text-5xl mb-4">📱</div>
+        <p className="text-sm text-gray-500 mb-6">1v1 Chat mobil uygulaması yakında App Store ve Google Play'de!</p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 bg-gray-50 rounded-2xl px-4 py-3">
+            <span className="text-2xl">🍎</span>
+            <div className="text-left">
+              <p className="text-xs text-gray-400">Yakında</p>
+              <p className="text-sm font-semibold text-gray-800">App Store</p>
+            </div>
+            <span className="ml-auto text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-semibold">Çok Yakında</span>
+          </div>
+          <div className="flex items-center gap-3 bg-gray-50 rounded-2xl px-4 py-3">
+            <span className="text-2xl">🤖</span>
+            <div className="text-left">
+              <p className="text-xs text-gray-400">Yakında</p>
+              <p className="text-sm font-semibold text-gray-800">Google Play</p>
+            </div>
+            <span className="ml-auto text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-semibold">Çok Yakında</span>
+          </div>
+        </div>
+        <p className="text-xs text-gray-400 mt-5">Şimdilik tarayıcıdan kullanmaya devam edebilirsin.</p>
       </div>
     </div>
   );
@@ -2260,8 +2314,14 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
               <span className="font-black text-gray-900 text-lg">1v1 Chat</span>
             </div>
             <nav className="hidden md:flex items-center gap-5 text-sm text-gray-600 font-medium ml-4">
-              {["Ev", "Hakkımızda", "Video Sohbeti", "İndirmek", "Bize Ulaşın"].map((l) => (
-                <a key={l} href="#" className="hover:text-gray-900 transition-colors">{l}</a>
+              {[
+                { label: "Ev", action: undefined },
+                { label: "Hakkımızda", action: () => setModal("about") },
+                { label: "Video Sohbeti", action: () => setModal("login") },
+                { label: "İndirmek", action: () => setModal("download") },
+                { label: "Bize Ulaşın", action: () => setModal("contact") },
+              ].map(({ label, action }) => (
+                <button key={label} onClick={action} className="hover:text-gray-900 transition-colors bg-transparent border-none cursor-pointer">{label}</button>
               ))}
             </nav>
             <div className="ml-auto flex items-center gap-3">
@@ -2332,6 +2392,7 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
       {modal === "about"        && <AboutModal      onClose={() => setModal("none")} />}
       {modal === "contact"      && <ContactModal    onClose={() => setModal("none")} />}
       {modal === "community"    && <CommunityModal  onClose={() => setModal("none")} />}
+      {modal === "download"     && <DownloadModal   onClose={() => setModal("none")} />}
       {modal === "filters" && filters && onFiltersChange && (
         <FiltersModal filters={filters} onChange={onFiltersChange} onClose={() => setModal("none")} />
       )}
