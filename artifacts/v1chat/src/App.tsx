@@ -4,6 +4,9 @@ import Chat from "@/pages/Chat";
 import NotFound from "@/pages/not-found";
 import VipPage from "@/pages/VipPage";
 import LeaderboardPage from "@/pages/LeaderboardPage";
+import VisitorsPage from "@/pages/VisitorsPage";
+import ReferralPage from "@/pages/ReferralPage";
+import MatchHistoryPage from "@/pages/MatchHistoryPage";
 
 const queryClient = new QueryClient();
 
@@ -17,6 +20,9 @@ function Router() {
       <Route path="/" component={ChatRoute} />
       <Route path="/vip" component={VipPage} />
       <Route path="/leaderboard" component={LeaderboardPage} />
+      <Route path="/visitors" component={VisitorsPage} />
+      <Route path="/referral" component={ReferralPage} />
+      <Route path="/history" component={MatchHistoryPage} />
       <Route component={NotFound} />
     </Switch>
   );

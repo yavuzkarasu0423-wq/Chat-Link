@@ -2196,6 +2196,18 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
                 <span className="w-5 h-5 shrink-0 text-base leading-5">🏆</span>
                 Lider Tablosu
               </a>
+              <a href={`${import.meta.env.BASE_URL}visitors`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-800 no-underline">
+                <span className="w-5 h-5 shrink-0 text-base leading-5">👀</span>
+                Ziyaretçilerim
+              </a>
+              <a href={`${import.meta.env.BASE_URL}history`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-800 no-underline">
+                <span className="w-5 h-5 shrink-0 text-base leading-5">📜</span>
+                Geçmiş
+              </a>
+              <a href={`${import.meta.env.BASE_URL}referral`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-emerald-600 hover:bg-emerald-50 no-underline">
+                <span className="w-5 h-5 shrink-0 text-base leading-5">🎁</span>
+                Davet Et
+              </a>
               <a href={`${import.meta.env.BASE_URL}vip`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-purple-600 hover:bg-purple-50 no-underline">
                 <span className="w-5 h-5 shrink-0 text-base leading-5">👑</span>
                 VIP Üyelik

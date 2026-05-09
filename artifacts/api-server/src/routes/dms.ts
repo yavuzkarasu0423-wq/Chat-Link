@@ -16,6 +16,8 @@ function mapMessage(m: {
   fromUserId: string;
   toUserId: string;
   text: string;
+  attachmentUrl?: string | null;
+  attachmentType?: string | null;
   read: boolean;
   createdAt: Date | string;
 }) {
@@ -26,10 +28,27 @@ function mapMessage(m: {
     toUserId: m.toUserId,
     content: m.text,
     text: m.text,
+    attachmentUrl: m.attachmentUrl ?? null,
+    attachmentType: m.attachmentType ?? null,
     read: m.read,
     createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : String(m.createdAt),
   };
 }
+
+/** Limit attachment payloads to ~700KB of base64 to keep DB rows reasonable. */
+const MAX_ATTACHMENT_LEN = 700_000;
+const ALLOWED_ATTACHMENT_TYPES = ["image"] as const;
+type AttachmentType = (typeof ALLOWED_ATTACHMENT_TYPES)[number];
+
+const attachmentSchema = z
+  .object({
+    attachmentUrl: z.string().min(8).max(MAX_ATTACHMENT_LEN).optional().nullable(),
+    attachmentType: z.enum(ALLOWED_ATTACHMENT_TYPES).optional().nullable(),
+  })
+  .refine(
+    (d) => (d.attachmentUrl ? Boolean(d.attachmentType) : true),
+    { message: "attachmentType required when attachmentUrl present" },
+  );
 
 // GET /api/dms — thread listesi
 router.get("/", requireAuth, async (req, res) => {
@@ -118,28 +137,40 @@ router.get("/:peerId", requireAuth, async (req, res) => {
 });
 
 /** Mesaj gönderme ortak mantığı */
-async function sendDm(fromUserId: string, toUserId: string, text: string) {
+async function sendDm(
+  fromUserId: string,
+  toUserId: string,
+  text: string,
+  attachment?: { url: string; type: AttachmentType } | null,
+) {
   const [message] = await db
     .insert(dmMessagesTable)
-    .values({ fromUserId, toUserId, text })
+    .values({
+      fromUserId,
+      toUserId,
+      text,
+      attachmentUrl: attachment?.url ?? null,
+      attachmentType: attachment?.type ?? null,
+    })
     .returning();
 
   void (async () => {
     const [fromProfile] = await db.select().from(profilesTable).where(eq(profilesTable.userId, fromUserId)).limit(1);
     const fromName = fromProfile?.displayName ?? "Biri";
+    const previewText = attachment ? "📷 Fotoğraf gönderdi" : text.slice(0, 80);
     notifyUser(toUserId, "dm-received", {
       fromUserId,
       fromDisplayName: fromName,
-      preview: text.slice(0, 80),
+      preview: previewText,
     });
     void sendPushToUser(toUserId, {
       title: fromName,
-      body: text.slice(0, 120),
+      body: previewText,
       data: { kind: "dm", fromUserId },
       channelId: "messages",
     });
     const [toUser] = await db.select().from(usersTable).where(eq(usersTable.id, toUserId)).limit(1);
-    if (toUser?.email && fromProfile) {
+    if (toUser?.email && fromProfile && !attachment) {
       await sendDmNotificationEmail(toUser.email, fromProfile.displayName, text);
     }
   })();
@@ -147,25 +178,56 @@ async function sendDm(fromUserId: string, toUserId: string, text: string) {
   return message;
 }
 
-// POST /api/dms — web uyumlu (body: { toUserId, body })
+// POST /api/dms — web uyumlu (body: { toUserId, body, attachmentUrl?, attachmentType? })
 router.post("/", requireAuth, async (req, res) => {
-  const parsed = z.object({ toUserId: z.string(), body: z.string().min(1).max(2000) }).safeParse(req.body);
+  const parsed = z
+    .object({
+      toUserId: z.string(),
+      body: z.string().max(2000).optional().default(""),
+      attachmentUrl: z.string().min(8).max(MAX_ATTACHMENT_LEN).optional().nullable(),
+      attachmentType: z.enum(ALLOWED_ATTACHMENT_TYPES).optional().nullable(),
+    })
+    .safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Bad request" });
     return;
   }
-  const message = await sendDm(req.userId!, parsed.data.toUserId, parsed.data.body);
+  const { toUserId, body, attachmentUrl, attachmentType } = parsed.data;
+  if (!body && !attachmentUrl) {
+    res.status(400).json({ error: "Mesaj veya ek gerekli" });
+    return;
+  }
+  const attachment = attachmentUrl && attachmentType ? { url: attachmentUrl, type: attachmentType } : null;
+  const text = body || (attachment ? "📷 Fotoğraf" : "");
+  const message = await sendDm(req.userId!, toUserId, text, attachment);
   res.json({ message: mapMessage(message) });
 });
 
-// POST /api/dms/:toUserId — mobil uyumlu (body: { content })
+// POST /api/dms/:toUserId — mobil uyumlu (body: { content, attachmentUrl?, attachmentType? })
 router.post("/:toUserId", requireAuth, async (req, res) => {
-  const parsed = z.object({ content: z.string().min(1).max(2000) }).safeParse(req.body);
+  const parsed = z
+    .object({
+      content: z.string().max(2000).optional().default(""),
+      attachmentUrl: z.string().min(8).max(MAX_ATTACHMENT_LEN).optional().nullable(),
+      attachmentType: z.enum(ALLOWED_ATTACHMENT_TYPES).optional().nullable(),
+    })
+    .merge(attachmentSchema.unwrap())
+    .partial()
+    .safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Bad request" });
     return;
   }
-  const message = await sendDm(req.userId!, String(req.params.toUserId), parsed.data.content);
+  const content = parsed.data.content ?? "";
+  const attachmentUrl = parsed.data.attachmentUrl ?? null;
+  const attachmentType = parsed.data.attachmentType ?? null;
+  if (!content && !attachmentUrl) {
+    res.status(400).json({ error: "Mesaj veya ek gerekli" });
+    return;
+  }
+  const attachment = attachmentUrl && attachmentType ? { url: attachmentUrl, type: attachmentType } : null;
+  const text = content || (attachment ? "📷 Fotoğraf" : "");
+  const message = await sendDm(req.userId!, String(req.params.toUserId), text, attachment);
   res.json({ message: mapMessage(message) });
 });
 

@@ -28,9 +28,11 @@ router.get("/stats", requireAuth, async (req, res) => {
   });
 });
 
-// GET /api/matches — son 20 görüşme
+// GET /api/matches?limit=20&offset=0 — paginated history
 router.get("/", requireAuth, async (req, res) => {
   const myId = req.userId!;
+  const limit = Math.min(Math.max(Number(req.query["limit"]) || 20, 1), 100);
+  const offset = Math.max(Number(req.query["offset"]) || 0, 0);
 
   const rows = await db
     .select()
@@ -39,7 +41,8 @@ router.get("/", requireAuth, async (req, res) => {
       sql`${matchHistoryTable.userAId} = ${myId} OR ${matchHistoryTable.userBId} = ${myId}`,
     )
     .orderBy(desc(matchHistoryTable.startedAt))
-    .limit(20);
+    .limit(limit)
+    .offset(offset);
 
   const matches = await Promise.all(
     rows.map(async (r) => {
@@ -60,7 +63,7 @@ router.get("/", requireAuth, async (req, res) => {
     }),
   );
 
-  res.json({ matches });
+  res.json({ matches, limit, offset, hasMore: matches.length === limit });
 });
 
 export default router;

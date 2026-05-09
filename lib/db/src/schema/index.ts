@@ -14,3 +14,5 @@ export * from "./push_tokens";
 export * from "./daily_rewards";
 export * from "./subscriptions";
 export * from "./processed_events";
+export * from "./profile_visits";
+export * from "./referrals";
