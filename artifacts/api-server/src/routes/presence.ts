@@ -44,7 +44,7 @@ router.get("/online", requireAuth, async (req, res) => {
     .from(profilesTable)
     .where(inArray(profilesTable.userId, ids));
 
-  res.json({ users: profiles });
+  res.json({ users: profiles, count: profiles.length });
 });
 
 export default router;

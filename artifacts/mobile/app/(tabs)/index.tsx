@@ -106,10 +106,13 @@ export default function HomeScreen() {
             <Text style={styles.displayName}>{displayName}</Text>
           </View>
           <View style={styles.headerRight}>
-            <View style={styles.coinBadge}>
+            <Pressable
+              onPress={() => router.push("/coin-history")}
+              style={({ pressed }) => [styles.coinBadge, pressed && { opacity: 0.7 }]}
+            >
               <Feather name="award" size={14} color="#f59e0b" />
               <Text style={styles.coinText}>{coins}</Text>
-            </View>
+            </Pressable>
             <View style={styles.avatarCircle}>
               {profile?.photoUrl ? (
                 <Image source={{ uri: profile.photoUrl }} style={styles.avatarImg} />
@@ -163,11 +166,15 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.statsRow}>
-              <View style={[styles.statCard, { backgroundColor: "#fff7ed" }]}>
+              <Pressable
+                onPress={() => router.push("/coin-history")}
+                style={({ pressed }) => [styles.statCard, { backgroundColor: "#fff7ed", opacity: pressed ? 0.75 : 1 }]}
+              >
                 <Feather name="award" size={22} color="#f59e0b" />
                 <Text style={styles.statNum}>{coins}</Text>
                 <Text style={styles.statLabel}>Coin</Text>
-              </View>
+                <Text style={styles.statHint}>Geçmiş →</Text>
+              </Pressable>
               <View style={[styles.statCard, { backgroundColor: "#f0fdf4" }]}>
                 <Feather name="users" size={22} color="#16a34a" />
                 <Text style={styles.statNum}>{activeUsers}</Text>
@@ -260,4 +267,5 @@ const styles = StyleSheet.create({
   },
   statNum: { fontSize: 24, fontWeight: "800", color: "#111827" },
   statLabel: { fontSize: 13, color: "#6b7280" },
+  statHint: { fontSize: 10, color: "#f59e0b", fontWeight: "600", marginTop: 2 },
 });
