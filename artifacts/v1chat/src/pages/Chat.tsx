@@ -7,6 +7,7 @@ import {
 import { io, Socket } from "socket.io-client";
 import SimplePeer from "simple-peer";
 import Landing from "./Landing";
+import BroadcasterDashboard from "./BroadcasterDashboard";
 import { useAuth } from "@workspace/replit-auth-web";
 
 // ─────────────────────────────────────────────
@@ -371,6 +372,17 @@ export default function Chat(props: ChatProps = {}) {
     }
   }, [phase]);
 
+  // Check broadcaster role
+  useEffect(() => {
+    if (!authedUser) return;
+    fetch("/api/broadcasters/me", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: { profile?: unknown; error?: string }) => {
+        setIsBroadcaster(!d.error && d.profile !== null);
+      })
+      .catch(() => {});
+  }, [authedUser?.id]);
+
   // Load coin balance from API once authed
   useEffect(() => {
     if (!authedUser) return;
@@ -399,6 +411,8 @@ export default function Chat(props: ChatProps = {}) {
   const filtersRef = useRef<Filters>(DEFAULT_FILTERS);
   const [dmToast, setDmToast] = useState<{ fromDisplayName: string; preview: string } | null>(null);
   const [announceToast, setAnnounceToast] = useState<string | null>(null);
+  const [isBroadcaster, setIsBroadcaster] = useState(false);
+  const [showBroadcasterDashboard, setShowBroadcasterDashboard] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
   const peerRef = useRef<SimplePeer.Instance | null>(null);
@@ -966,6 +980,8 @@ export default function Chat(props: ChatProps = {}) {
           onFiltersChange={setFilters}
           forceProfileOpen={profileChecked && needsProfile}
           onProfileSaved={handleProfileSaved}
+          isBroadcaster={isBroadcaster}
+          onOpenBroadcasterDashboard={() => setShowBroadcasterDashboard(true)}
         />
         {announceToast && (
           <div className="fixed top-4 left-4 right-4 z-[200] bg-indigo-600 shadow-2xl rounded-2xl p-4 flex items-center gap-3 animate-slide-up">
@@ -974,6 +990,7 @@ export default function Chat(props: ChatProps = {}) {
             <button onClick={() => setAnnounceToast(null)} className="text-indigo-200 hover:text-white text-xl flex-shrink-0">✕</button>
           </div>
         )}
+        {showBroadcasterDashboard && <BroadcasterDashboard onClose={() => setShowBroadcasterDashboard(false)} />}
       </>
     );
   }
@@ -992,6 +1009,8 @@ export default function Chat(props: ChatProps = {}) {
           onFiltersChange={setFilters}
           forceProfileOpen={profileChecked && needsProfile}
           onProfileSaved={handleProfileSaved}
+          isBroadcaster={isBroadcaster}
+          onOpenBroadcasterDashboard={() => setShowBroadcasterDashboard(true)}
         />
         {announceToast && (
           <div className="fixed top-4 left-4 right-4 z-[200] bg-indigo-600 shadow-2xl rounded-2xl p-4 flex items-center gap-3 animate-slide-up">
@@ -1000,6 +1019,7 @@ export default function Chat(props: ChatProps = {}) {
             <button onClick={() => setAnnounceToast(null)} className="text-indigo-200 hover:text-white text-xl flex-shrink-0">✕</button>
           </div>
         )}
+        {showBroadcasterDashboard && <BroadcasterDashboard onClose={() => setShowBroadcasterDashboard(false)} />}
       </>
     );
   }

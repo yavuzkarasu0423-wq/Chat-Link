@@ -50,6 +50,8 @@ export interface LandingProps {
   onFiltersChange?: (f: Filters) => void;
   forceProfileOpen?: boolean;
   onProfileSaved?: (p: { displayName: string; photoUrl: string | null }) => void;
+  isBroadcaster?: boolean;
+  onOpenBroadcasterDashboard?: () => void;
 }
 
 interface OnlineUser {
@@ -1600,7 +1602,7 @@ function MatchPage({ onStart }: { onStart: () => void }) {
 // ─────────────────────────────────────────────
 // Settings Sheet — sağdan kayan panel
 // ─────────────────────────────────────────────
-function SettingsSheet({ onClose, onLogout, onShowBlocked, onShowTerms, onShowPrivacy, onShowAbout, onShowContact, onShowCommunity, onStartVideoChat }: {
+function SettingsSheet({ onClose, onLogout, onShowBlocked, onShowTerms, onShowPrivacy, onShowAbout, onShowContact, onShowCommunity, onStartVideoChat, isBroadcaster, onOpenBroadcasterDashboard }: {
   onClose: () => void;
   onLogout?: () => void;
   onShowBlocked: () => void;
@@ -1610,8 +1612,11 @@ function SettingsSheet({ onClose, onLogout, onShowBlocked, onShowTerms, onShowPr
   onShowContact: () => void;
   onShowCommunity: () => void;
   onStartVideoChat: () => void;
+  isBroadcaster?: boolean;
+  onOpenBroadcasterDashboard?: () => void;
 }) {
   const items: { label: string; icon: string; action: () => void }[] = [
+    ...(isBroadcaster && onOpenBroadcasterDashboard ? [{ label: "Yayıncı Panelim", icon: "🎙️", action: onOpenBroadcasterDashboard }] : []),
     { label: "Hakkımızda", icon: "ℹ️", action: onShowAbout },
     { label: "Bize Ulaşın", icon: "📧", action: onShowContact },
     { label: "Topluluk Kuralları", icon: "📋", action: onShowCommunity },
@@ -1998,7 +2003,7 @@ function MessagesTabPage({ meId, authedUser, coins, onMarkRead, onOpenProfile, o
 // ─────────────────────────────────────────────
 // Main Landing Component
 // ─────────────────────────────────────────────
-export default function Landing({ onStartChat, activeUsers, startLoggedIn = false, onLogin, onLogout, authedUser, coins = 0, filters, onFiltersChange, forceProfileOpen = false, onProfileSaved }: LandingProps) {
+export default function Landing({ onStartChat, activeUsers, startLoggedIn = false, onLogin, onLogout, authedUser, coins = 0, filters, onFiltersChange, forceProfileOpen = false, onProfileSaved, isBroadcaster = false, onOpenBroadcasterDashboard }: LandingProps) {
   const isLoggedIn = !!authedUser || startLoggedIn;
   const [modal, setModal]               = useState<Modal>("none");
   const [tab, setTab]                   = useState<Tab>("home");
@@ -2241,6 +2246,8 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
               onShowContact={() => { setShowSettings(false); setModal("contact"); }}
               onShowCommunity={() => { setShowSettings(false); setModal("community"); }}
               onStartVideoChat={() => { setShowSettings(false); onStartChat(); }}
+              isBroadcaster={isBroadcaster}
+              onOpenBroadcasterDashboard={onOpenBroadcasterDashboard ? () => { setShowSettings(false); onOpenBroadcasterDashboard(); } : undefined}
             />
           )}
         </>

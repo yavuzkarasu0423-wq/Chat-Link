@@ -13,6 +13,7 @@ import adminRouter from "./admin";
 import emailRouter from "./email";
 import matchesRouter from "./matches";
 import checkoutRouter from "./checkout";
+import broadcastersRouter from "./broadcasters";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use("/admin", adminRouter);
 router.use("/email", emailRouter);
 router.use("/matches", matchesRouter);
 router.use("/checkout", checkoutRouter);
+router.use("/broadcasters", broadcastersRouter);
 
 export default router;
