@@ -27,21 +27,13 @@ export default function VideoChatScreen() {
   const url = `https://${DOMAIN}/chat?sid=${sessionId ?? ""}`;
 
   if (Platform.OS === "web") {
+    if (typeof window !== "undefined") {
+      window.location.href = `https://${DOMAIN}/chat?sid=${sessionId ?? ""}`;
+    }
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: colors.border }]}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Feather name="arrow-left" size={22} color={colors.foreground} />
-          </Pressable>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Görüntülü Sohbet</Text>
-          <View style={{ width: 40 }} />
-        </View>
-        <View style={styles.centered}>
-          <Feather name="video" size={48} color={colors.primary} />
-          <Text style={[styles.webMsg, { color: colors.foreground }]}>
-            Görüntülü sohbet için mobil uygulamayı kullanın.
-          </Text>
-        </View>
+      <View style={[styles.container, styles.centered, { backgroundColor: "#052e16" }]}>
+        <ActivityIndicator color="#4ade80" size="large" />
+        <Text style={styles.loadingText}>Yükleniyor...</Text>
       </View>
     );
   }
