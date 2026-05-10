@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { setLanguage } from "../i18n";
+import DailyRewardBanner from "@/components/DailyRewardBanner";
 
 import type { Filters } from "./Chat";
 
@@ -1580,7 +1581,7 @@ function BottomNav({ tab, setTab, unreadDms, onVideoChat }: {
     <nav className="bg-white border-t border-gray-100 flex items-center h-16 flex-shrink-0 z-40 relative">
       {/* Video Chat / Home */}
       <button
-        onClick={onVideoChat}
+        onClick={() => setTab("home")}
         className={`flex-1 flex items-center justify-center h-full transition-colors ${tab === "home" ? "text-gray-900" : "text-gray-400"}`}
       >
         <svg className="w-7 h-7" fill={tab === "home" ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -2143,6 +2144,9 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
       <span className="font-extrabold text-black text-sm tracking-tight leading-none">{coins}</span>
     </button>
   );
+  const DailyChip = () => (
+    <DailyRewardBanner authed={isLoggedIn} onClaimed={() => { /* coin badge will refresh on next nav */ }} />
+  );
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden relative" style={{ fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}>
@@ -2155,14 +2159,15 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
               <Logo size={26} />
               <span className="font-black text-gray-900 text-sm">1v1 Chat</span>
             </div>
-            <div className="flex items-center gap-2 px-1 mb-5">
+            <div className="flex items-center gap-2 px-1 mb-3">
               <button onClick={() => setShowProfile(true)} className="w-9 h-9 rounded-full overflow-hidden bg-orange-400 flex-shrink-0 flex items-center justify-center border-2 border-white shadow-sm">
                 {avatarEl}
               </button>
               <CoinBadge />
             </div>
+            <div className="px-1 mb-3"><DailyChip /></div>
             <nav className="flex flex-col gap-0.5">
-              <button onClick={handleCTA} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${tab === "home" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"}`}>
+              <button onClick={() => setTab("home")} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${tab === "home" ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"}`}>
                 <svg className="w-5 h-5 shrink-0" fill={tab === "home" ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
                 </svg>
@@ -2187,6 +2192,26 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
                 Mesajlar
                 {unreadDms > 0 && <span className="ml-auto w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">{unreadDms > 9 ? "9+" : unreadDms}</span>}
               </button>
+              <a href={`${import.meta.env.BASE_URL}leaderboard`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-800 no-underline">
+                <span className="w-5 h-5 shrink-0 text-base leading-5">🏆</span>
+                Lider Tablosu
+              </a>
+              <a href={`${import.meta.env.BASE_URL}visitors`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-800 no-underline">
+                <span className="w-5 h-5 shrink-0 text-base leading-5">👀</span>
+                Ziyaretçilerim
+              </a>
+              <a href={`${import.meta.env.BASE_URL}history`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-800 no-underline">
+                <span className="w-5 h-5 shrink-0 text-base leading-5">📜</span>
+                Geçmiş
+              </a>
+              <a href={`${import.meta.env.BASE_URL}referral`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-emerald-600 hover:bg-emerald-50 no-underline">
+                <span className="w-5 h-5 shrink-0 text-base leading-5">🎁</span>
+                Davet Et
+              </a>
+              <a href={`${import.meta.env.BASE_URL}vip`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-purple-600 hover:bg-purple-50 no-underline">
+                <span className="w-5 h-5 shrink-0 text-base leading-5">👑</span>
+                VIP Üyelik
+              </a>
             </nav>
           </aside>
           {/* ── Main content ── */}
@@ -2200,6 +2225,7 @@ export default function Landing({ onStartChat, activeUsers, startLoggedIn = fals
                     {avatarEl}
                   </button>
                   <CoinBadge />
+                  <DailyChip />
                 </div>
                 <div className="absolute inset-0">
                   <PhotoCollage />

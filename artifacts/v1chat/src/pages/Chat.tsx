@@ -9,6 +9,7 @@ import SimplePeer from "simple-peer";
 import Landing from "./Landing";
 import BroadcasterDashboard from "./BroadcasterDashboard";
 import { useAuth } from "@workspace/replit-auth-web";
+import { GiftOverlay, type GiftOverlayHandle } from "../components/GiftOverlay";
 
 // ─────────────────────────────────────────────
 // Types
@@ -36,12 +37,6 @@ interface SessionStats {
   activeUsers: number;
 }
 
-interface FlyingGift {
-  id: string;
-  emoji: string;
-  side: "me" | "partner";
-  offsetX: number;
-}
 
 // ─────────────────────────────────────────────
 // Constants
@@ -163,12 +158,13 @@ const FLOAT_CIRCLES = [
   { img: "https://randomuser.me/api/portraits/men/18.jpg", size: 38, style: { left: "38%", top: "84%", animation: "floatCircle2 9s ease-in-out infinite 4s" } },
 ];
 
-function WaitingScreen({ onStop, displayName, photoUrl, country, isConnecting }: {
+function WaitingScreen({ onStop, displayName, photoUrl, country, isConnecting, subtitle }: {
   onStop: () => void;
   displayName?: string;
   photoUrl?: string | null;
   country?: string | null;
   isConnecting?: boolean;
+  subtitle?: string | null;
 }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
@@ -212,6 +208,12 @@ function WaitingScreen({ onStop, displayName, photoUrl, country, isConnecting }:
         <h2 className="text-xl font-bold text-gray-800">
           {isConnecting ? "Bağlantı sağlanıyor..." : "Kullanıcılar aranıyor..."}
         </h2>
+        {subtitle && (
+          <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm text-gray-700 text-sm font-medium px-4 py-2 rounded-full shadow-sm border border-white/90 -mt-3">
+            <span>👋</span>
+            <span>{subtitle}</span>
+          </div>
+        )}
 
         {/* Profile photo with spinner ring */}
         <div className="relative w-44 h-44 flex items-center justify-center">
@@ -333,6 +335,10 @@ export default function Chat(props: ChatProps = {}) {
   const [incomingFriendReq, setIncomingFriendReq] = useState<{ fromName: string; fromUserId: string } | null>(null);
   // Filter coin warning toast
   const [filterCoinToast, setFilterCoinToast] = useState<string | null>(null);
+  const [partnerLeftMsg, setPartnerLeftMsg] = useState<string | null>(null);
+  // In-call coin purchase modal
+  const [showBuyCoins, setShowBuyCoins] = useState(false);
+  const [buyCoinsLoading, setBuyCoinsLoading] = useState<string | null>(null);
   // Partner profili — eşleşince çekilen gerçek bilgiler
   const [partnerProfile, setPartnerProfile] = useState<{
     displayName: string; age: number | null; gender: string | null;
@@ -402,7 +408,7 @@ export default function Chat(props: ChatProps = {}) {
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerAudioOn, setPartnerAudioOn] = useState(true);
   const [partnerVideoOn, setPartnerVideoOn] = useState(true);
-  const [flyingGifts, setFlyingGifts] = useState<FlyingGift[]>([]);
+  const giftOverlayRef = useRef<GiftOverlayHandle>(null);
   const [coinFlash, setCoinFlash] = useState(false);
   // Bug 7: WebRTC reconnect
   const [webrtcReconnecting, setWebrtcReconnecting] = useState(false);
@@ -668,7 +674,6 @@ export default function Chat(props: ChatProps = {}) {
     });
 
     socket.on("partner-disconnected", () => {
-      setPhase("idle");
       destroyPeer();
       setReportSent(false);
       setShowGiftPanel(false);
@@ -677,6 +682,11 @@ export default function Chat(props: ChatProps = {}) {
       setIncomingFriendReq(null);
       setMessages([]);
       setPartnerProfile(null);
+      // Otomatik yeni arama — lobby'e atma
+      setPartnerLeftMsg("Kullanıcı ayrıldı. Yeni eşleşme aranıyor...");
+      setPhase("waiting");
+      socketRef.current?.emit("find-match", { filters: filtersRef.current });
+      setTimeout(() => setPartnerLeftMsg(null), 4000);
     });
 
     socket.on("chat-message", ({ text }: { text: string }) => {
@@ -699,12 +709,12 @@ export default function Chat(props: ChatProps = {}) {
       setPartnerVideoOn(video);
     });
 
-    socket.on("partner-gift", ({ emoji }: { emoji: string; coins: number }) => {
-      const id = `${Date.now()}-${Math.random()}`;
-      setFlyingGifts((arr) => [...arr, { id, emoji, side: "partner" as const, offsetX: 0 }]);
-      setTimeout(() => {
-        setFlyingGifts((arr) => arr.filter((g) => g.id !== id));
-      }, 3500);
+    socket.on("partner-gift", ({ emoji, senderName }: { emoji: string; coins: number; senderName?: string }) => {
+      giftOverlayRef.current?.push({
+        emoji,
+        senderName: senderName ?? partnerProfile?.displayName ?? "Birisi",
+        side: "partner",
+      });
     });
 
     socket.on("banned", () => {
@@ -948,11 +958,11 @@ export default function Chat(props: ChatProps = {}) {
       return;
     }
     // Bug 1 fix: socket.emit("gift") kaldırıldı — sunucu /api/coins/spend sonrası notifyUser() ile push eder
-    const id = `${Date.now()}-${Math.random()}`;
-    setFlyingGifts((arr) => [...arr, { id, emoji, side: "me" as const, offsetX: 0 }]);
-    setTimeout(() => {
-      setFlyingGifts((arr) => arr.filter((g) => g.id !== id));
-    }, 3500);
+    giftOverlayRef.current?.push({
+      emoji,
+      senderName: myProfile?.displayName ?? "Sen",
+      side: "me",
+    });
   };
 
   // Auth yüklenirken spinner
@@ -1024,7 +1034,7 @@ export default function Chat(props: ChatProps = {}) {
     );
   }
   if (phase === "waiting") {
-    return <WaitingScreen onStop={handleStop} displayName={myProfile?.displayName} photoUrl={myProfile?.photoUrl} />;
+    return <WaitingScreen onStop={handleStop} displayName={myProfile?.displayName} photoUrl={myProfile?.photoUrl} subtitle={partnerLeftMsg} />;
   }
   if (phase === "connecting") {
     return (
@@ -1270,27 +1280,8 @@ export default function Chat(props: ChatProps = {}) {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Flying gifts layer */}
-        <div className="absolute inset-0 pointer-events-none z-40 overflow-hidden">
-          {flyingGifts.map((g) => {
-            const offsetX = g.side === "me" ? (Math.random() * 40 - 20) : (Math.random() * 80 - 40);
-            return (
-              <div
-                key={g.id}
-                className="absolute"
-                style={{
-                  left: "50%",
-                  bottom: "30%",
-                  marginLeft: `${offsetX - 28}px`,
-                  animation: "giftFly 3.4s cubic-bezier(0.2, 0.7, 0.4, 1) forwards",
-                  willChange: "transform, opacity",
-                }}
-              >
-                <Twemoji emoji={g.emoji} size={56} />
-              </div>
-            );
-          })}
-        </div>
+        {/* Premium gift overlay (combo, rarity, cinematic effects) */}
+        <GiftOverlay ref={giftOverlayRef} />
       </div>
 
       {/* ── BOTTOM BAR ── */}
@@ -1374,7 +1365,10 @@ export default function Chat(props: ChatProps = {}) {
                 <Twemoji emoji="🪙" size={16} />
                 <span className={`font-bold text-sm tabular-nums ${coinFlash ? "text-red-400" : "text-white"}`}>{coins}</span>
               </div>
-              <button className="bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-full active:scale-95">
+              <button
+                onClick={() => { setShowBuyCoins(true); setShowGiftPanel(false); }}
+                className="bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-full active:scale-95 hover:bg-emerald-400 transition-colors"
+              >
                 Şimdi satın al →
               </button>
             </div>
@@ -1402,6 +1396,59 @@ export default function Chat(props: ChatProps = {}) {
           <span className="text-2xl flex-shrink-0">📢</span>
           <p className="text-sm font-semibold text-white flex-1">{announceToast}</p>
           <button onClick={() => setAnnounceToast(null)} className="text-indigo-200 hover:text-white text-xl flex-shrink-0">✕</button>
+        </div>
+      )}
+
+      {/* BUY COINS MODAL (in-call) */}
+      {showBuyCoins && (
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-[70] p-4 animate-fade-in">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
+              <div>
+                <h2 className="font-black text-gray-900 text-lg">🪙 Coin Satın Al</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Mevcut: <strong>{coins}</strong> coin</p>
+              </div>
+              <button onClick={() => setShowBuyCoins(false)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold hover:bg-gray-200">✕</button>
+            </div>
+            <div className="px-4 pb-5 grid grid-cols-2 gap-2">
+              {([
+                { id: "pkg_450",   coins: 450,   price: 129  },
+                { id: "pkg_1800",  coins: 1800,  price: 479  },
+                { id: "pkg_3500",  coins: 3500,  price: 883  },
+                { id: "pkg_7000",  coins: 7000,  price: 1675 },
+                { id: "pkg_15000", coins: 15000, price: 3528 },
+                { id: "pkg_35000", coins: 35000, price: 8048 },
+              ] as const).map((pkg) => (
+                <button
+                  key={pkg.id}
+                  disabled={buyCoinsLoading !== null}
+                  onClick={async () => {
+                    setBuyCoinsLoading(pkg.id);
+                    try {
+                      const res = await fetch("/api/checkout/session", {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ packageId: pkg.id }),
+                      });
+                      if (res.ok) {
+                        const d = await res.json() as { url?: string };
+                        if (d.url) window.open(d.url, "_blank");
+                      }
+                    } catch { /* ignore */ }
+                    setBuyCoinsLoading(null);
+                    setShowBuyCoins(false);
+                  }}
+                  className="flex flex-col items-center gap-1 py-3 px-2 rounded-2xl border-2 border-gray-100 hover:border-emerald-400 hover:bg-emerald-50 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <span className="text-yellow-500 font-black text-lg">{pkg.coins.toLocaleString()}</span>
+                  <span className="text-xs text-gray-400">coin</span>
+                  <span className="text-emerald-600 font-bold text-sm mt-1">₺{pkg.price}</span>
+                  {buyCoinsLoading === pkg.id && <span className="text-[10px] text-gray-400 animate-pulse">İşleniyor…</span>}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

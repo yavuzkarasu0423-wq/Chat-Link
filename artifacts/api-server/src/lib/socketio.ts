@@ -12,6 +12,7 @@ import {
 } from "@workspace/db/schema";
 import { eq, and, or, sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { getVipStatus, vipCanWaiveFilterCost } from "./vip";
 
 interface SocketData {
   userId?: string;
@@ -111,15 +112,16 @@ async function isBlocked(blockerId: string, blockedId: string): Promise<boolean>
   return row.length > 0;
 }
 
-/** Filtre coin maliyeti hesapla ve kes. Yetersiz bakiye → false döner. */
+/** Filtre coin maliyeti hesapla ve kes. VIP planları muafiyet sağlar. Yetersiz bakiye → false döner. */
 async function deductFilterCoins(
   userId: string,
   genderFilter?: string,
   countryFilter?: string | null,
 ): Promise<{ ok: boolean; cost: number }> {
+  const vip = await getVipStatus(userId);
   let cost = 0;
-  if (genderFilter === "female") cost += 20;
-  if (countryFilter) cost += 10;
+  if (genderFilter === "female" && !vipCanWaiveFilterCost(vip.plan, "gender")) cost += 20;
+  if (countryFilter && !vipCanWaiveFilterCost(vip.plan, "country")) cost += 10;
   if (cost === 0) return { ok: true, cost: 0 };
 
   const updated = await db

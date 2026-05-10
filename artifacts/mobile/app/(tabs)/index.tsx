@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useApi } from "@/hooks/useApi";
 import { useColors } from "@/hooks/useColors";
+import DailyRewardCard from "@/components/DailyRewardCard";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -106,10 +107,13 @@ export default function HomeScreen() {
             <Text style={styles.displayName}>{displayName}</Text>
           </View>
           <View style={styles.headerRight}>
-            <View style={styles.coinBadge}>
+            <Pressable
+              onPress={() => router.push("/coin-history")}
+              style={({ pressed }) => [styles.coinBadge, pressed && { opacity: 0.7 }]}
+            >
               <Feather name="award" size={14} color="#f59e0b" />
               <Text style={styles.coinText}>{coins}</Text>
-            </View>
+            </Pressable>
             <View style={styles.avatarCircle}>
               {profile?.photoUrl ? (
                 <Image source={{ uri: profile.photoUrl }} style={styles.avatarImg} />
@@ -163,11 +167,15 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.statsRow}>
-              <View style={[styles.statCard, { backgroundColor: "#fff7ed" }]}>
+              <Pressable
+                onPress={() => router.push("/coin-history")}
+                style={({ pressed }) => [styles.statCard, { backgroundColor: "#fff7ed", opacity: pressed ? 0.75 : 1 }]}
+              >
                 <Feather name="award" size={22} color="#f59e0b" />
                 <Text style={styles.statNum}>{coins}</Text>
                 <Text style={styles.statLabel}>Coin</Text>
-              </View>
+                <Text style={styles.statHint}>Geçmiş →</Text>
+              </Pressable>
               <View style={[styles.statCard, { backgroundColor: "#f0fdf4" }]}>
                 <Feather name="users" size={22} color="#16a34a" />
                 <Text style={styles.statNum}>{activeUsers}</Text>
@@ -175,6 +183,26 @@ export default function HomeScreen() {
               </View>
             </View>
 
+            <DailyRewardCard onClaimed={(_r, balance) => setCoins(balance)} />
+
+            <View style={styles.statsRow}>
+              <Pressable
+                onPress={() => router.push("/leaderboard" as never)}
+                style={({ pressed }) => [styles.statCard, { backgroundColor: "#ede9fe", opacity: pressed ? 0.75 : 1 }]}
+              >
+                <Feather name="award" size={22} color="#7c3aed" />
+                <Text style={styles.statLabel}>Lider Tablosu</Text>
+                <Text style={styles.statHint}>🏆 Aç →</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => router.push("/vip" as never)}
+                style={({ pressed }) => [styles.statCard, { backgroundColor: "#fef3c7", opacity: pressed ? 0.75 : 1 }]}
+              >
+                <Feather name="star" size={22} color="#a16207" />
+                <Text style={styles.statLabel}>VIP Üyelik</Text>
+                <Text style={[styles.statHint, { color: "#a16207" }]}>👑 Aç →</Text>
+              </Pressable>
+            </View>
           </>
         )}
       </ScrollView>
@@ -260,4 +288,5 @@ const styles = StyleSheet.create({
   },
   statNum: { fontSize: 24, fontWeight: "800", color: "#111827" },
   statLabel: { fontSize: 13, color: "#6b7280" },
+  statHint: { fontSize: 10, color: "#f59e0b", fontWeight: "600", marginTop: 2 },
 });

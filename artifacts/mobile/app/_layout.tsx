@@ -17,11 +17,26 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 WebBrowser.maybeCompleteAuthSession();
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { registerForPushNotifications, unregisterPushNotifications } from "@/lib/push";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+function PushRegistrar() {
+  const { user, sessionId } = useAuth();
+  useEffect(() => {
+    const apiBase = `https://${process.env.EXPO_PUBLIC_DOMAIN ?? ""}`;
+    if (user && sessionId) {
+      registerForPushNotifications({ apiBase, sessionId, userId: user.id }).catch(() => {});
+    } else if (sessionId) {
+      // Session present but user cleared (logging out) → drop server binding
+      unregisterPushNotifications({ apiBase, sessionId }).catch(() => {});
+    }
+  }, [user, sessionId]);
+  return null;
+}
 
 function RootLayoutNav() {
   return (
@@ -31,6 +46,8 @@ function RootLayoutNav() {
       <Stack.Screen name="profile-edit" options={{ headerShown: false }} />
       <Stack.Screen name="coin-history" options={{ headerShown: false }} />
       <Stack.Screen name="videochat" options={{ headerShown: false }} />
+      <Stack.Screen name="leaderboard" options={{ headerShown: false }} />
+      <Stack.Screen name="vip" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -56,6 +73,7 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
+            <PushRegistrar />
             <GestureHandlerRootView>
               <KeyboardProvider>
                 <RootLayoutNav />

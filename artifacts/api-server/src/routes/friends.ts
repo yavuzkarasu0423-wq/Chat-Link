@@ -6,6 +6,7 @@ import { eq, and, or, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { sendFriendRequestEmail } from "../lib/email";
 import { notifyUser } from "../lib/socketio";
+import { sendPushToUser } from "../lib/push";
 
 const router = Router();
 
@@ -73,6 +74,13 @@ router.post("/", requireAuth, async (req, res) => {
       fromUserId: req.userId!,
       fromDisplayName: fromName,
       fromPhotoUrl: fromProfile?.photoUrl ?? null,
+    });
+
+    void sendPushToUser(parsed.data.peerId, {
+      title: "Yeni arkadaşlık isteği",
+      body: `${fromName} seninle arkadaş olmak istiyor`,
+      data: { kind: "friend-request", fromUserId: req.userId! },
+      channelId: "friends",
     });
 
     const [toUser] = await db.select().from(usersTable).where(eq(usersTable.id, parsed.data.peerId)).limit(1);

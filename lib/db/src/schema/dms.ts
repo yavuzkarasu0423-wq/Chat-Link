@@ -12,6 +12,9 @@ export const dmMessagesTable = pgTable(
       .notNull()
       .references(() => usersTable.id, { onDelete: "cascade" }),
     text: text("text").notNull(),
+    /** When set, the message renders as a media attachment. Type discriminates the renderer. */
+    attachmentUrl: text("attachment_url"),
+    attachmentType: varchar("attachment_type", { length: 16 }),
     read: boolean("read").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
